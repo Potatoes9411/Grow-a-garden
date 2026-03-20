@@ -1,0 +1,3029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grow a Garden</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Nunito',sans-serif;overflow:hidden;background:#000;color:#fff;height:100vh;width:100vw;user-select:none;}
+canvas{display:block;width:100%;height:100%;}
+#blocker{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;}
+#blocker h1{font-size:48px;color:#4f4;text-shadow:0 0 20px #0f0;margin-bottom:10px;}
+#blocker p{font-size:18px;color:#ccc;margin-bottom:5px;}
+#blocker .controls{font-size:13px;color:#999;max-width:500px;text-align:center;line-height:1.7;}
+#hud{position:fixed;top:0;left:0;right:0;height:50px;background:linear-gradient(180deg,rgba(0,0,0,0.7),transparent);display:flex;align-items:center;padding:0 15px;z-index:10;pointer-events:none;gap:15px;}
+#hud>div{pointer-events:auto;}
+.hud-item{display:flex;align-items:center;gap:5px;font-weight:700;font-size:14px;background:rgba(0,0,0,0.5);padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);}
+.hud-item .icon{font-size:18px;}
+#weather-banner{position:fixed;top:55px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:6px 20px;border-radius:12px;font-weight:700;font-size:15px;z-index:10;display:none;border:2px solid #5599FF;text-align:center;}
+#interaction-prompt{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:8px 20px;border-radius:10px;font-weight:700;font-size:16px;z-index:10;display:none;border:2px solid #4f4;pointer-events:none;}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.4);z-index:5;pointer-events:none;display:none;}
+#dialogue-box{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:600px;max-width:90%;background:rgba(10,15,30,0.95);border:2px solid #556;border-radius:16px;padding:18px;z-index:50;display:none;}
+#dialogue-box .npc-name{font-weight:900;font-size:16px;color:#4f4;margin-bottom:5px;}
+#dialogue-box .npc-text{font-size:14px;line-height:1.5;min-height:40px;color:#ddd;}
+#dialogue-box .options{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+#dialogue-box .options button{padding:6px 16px;border:2px solid #5599FF;background:rgba(40,60,100,0.7);color:#aaddff;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;transition:all .15s;}
+#dialogue-box .options button:hover{background:rgba(60,80,140,0.9);transform:scale(1.05);}
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:80;display:none;align-items:center;justify-content:center;}
+.panel-overlay.active{display:flex;}
+.panel{background:#131e2e;border:3px solid #334;border-radius:16px;padding:20px;position:relative;max-height:85vh;overflow-y:auto;width:92%;max-width:800px;}
+.panel::-webkit-scrollbar{width:8px;}.panel::-webkit-scrollbar-track{background:#0a0f18;}.panel::-webkit-scrollbar-thumb{background:#445;border-radius:4px;}
+.panel h2{font-size:22px;margin-bottom:4px;color:#4f4;}
+.panel .subtitle{font-size:12px;color:#889;margin-bottom:12px;}
+.btn-close{position:absolute;top:10px;right:10px;background:#5a2222;border:2px solid #f44;color:#faa;padding:4px 12px;border-radius:8px;cursor:pointer;font-weight:700;z-index:10;}
+.btn-close:hover{background:#7a3333;}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px;}
+.shop-card{background:#1a2840;border:2px solid #333;border-radius:10px;padding:10px;text-align:center;transition:all .2s;cursor:pointer;}
+.shop-card:hover{transform:translateY(-2px);background:#223050;}
+.shop-card .icon{font-size:30px;display:block;margin-bottom:4px;}
+.shop-card .name{font-size:12px;font-weight:700;}
+.shop-card .price{font-size:11px;color:#fc4;margin-top:4px;}
+.shop-card .stock{font-size:10px;color:#888;}
+.shop-card .rarity{font-size:9px;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:3px;}
+.r-common{border-color:#aaa;}.r-common .rarity{background:#555;color:#ddd;}
+.r-uncommon{border-color:#5c5;}.r-uncommon .rarity{background:#253;color:#5f5;}
+.r-rare{border-color:#59f;}.r-rare .rarity{background:#235;color:#8bf;}
+.r-epic{border-color:#a5d;}.r-epic .rarity{background:#325;color:#d8f;}
+.r-legendary{border-color:#f90;}.r-legendary .rarity{background:#532;color:#fc8;}
+.r-mythical{border-color:#f33;}.r-mythical .rarity{background:#522;color:#f88;}
+.r-prismatic{border-color:#f0f;border-image:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f) 1;}
+.r-prismatic .rarity{background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.btn{padding:6px 14px;border:2px solid;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;transition:all .15s;}
+.btn:hover{transform:scale(1.05);filter:brightness(1.2);}
+.btn-buy{background:#253;border-color:#5c5;color:#afa;}
+.btn-sell{background:#532;border-color:#f90;color:#fc8;}
+.btn-action{background:#235;border-color:#59f;color:#8bf;}
+.btn-special{background:#325;border-color:#a5d;color:#d8f;}
+.tab-bar{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;}
+.tab-bar button{padding:5px 12px;border:1px solid #445;background:#1a2030;color:#aaa;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;}
+.tab-bar button.active{background:#2a4060;color:#fff;border-color:#59f;}
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;}
+.inv-slot{background:#1a2030;border:2px solid #333;border-radius:8px;padding:6px;text-align:center;font-size:10px;cursor:pointer;}
+.inv-slot:hover{border-color:#5c5;background:#1e2840;}
+.inv-slot .inv-icon{font-size:24px;display:block;}
+.quest-item{background:#1a2840;border:1px solid #334;border-radius:8px;padding:10px;margin-bottom:6px;}
+.quest-item .progress-bar{height:6px;background:#1a1a2e;border-radius:3px;margin-top:6px;overflow:hidden;}
+.quest-item .progress-fill{height:100%;background:#4f4;border-radius:3px;transition:width .3s;}
+.sell-breakdown{font-size:12px;color:#aab;line-height:1.8;background:#0e1622;padding:10px;border-radius:8px;margin-top:8px;max-height:200px;overflow-y:auto;}
+.upgrade-row{display:flex;justify-content:space-between;align-items:center;background:#1a2840;padding:8px 12px;border-radius:8px;margin-bottom:6px;border:1px solid #334;}
+.upgrade-row .info{flex:1;}
+.upgrade-row .cost{font-size:13px;color:#fc4;font-weight:700;margin-right:10px;}
+.pet-card{background:#1a2840;border:2px solid #334;border-radius:10px;padding:8px;text-align:center;cursor:pointer;}
+.pet-card:hover{border-color:#5c5;}
+.pet-card .pet-icon{font-size:28px;}
+.pet-card .pet-name{font-size:11px;font-weight:700;}
+.pet-card .pet-level{font-size:10px;color:#888;}
+.xp-bar{height:4px;background:#222;border-radius:2px;margin-top:3px;overflow:hidden;}
+.xp-fill{height:100%;background:#59f;border-radius:2px;}
+.minimap{position:fixed;bottom:10px;right:10px;width:150px;height:150px;background:rgba(0,0,0,0.6);border:2px solid #445;border-radius:8px;z-index:10;overflow:hidden;pointer-events:none;}
+.minimap canvas{width:100%;height:100%;}
+#notification{position:fixed;top:60px;right:15px;z-index:90;display:flex;flex-direction:column;gap:5px;pointer-events:none;}
+.notif{background:rgba(10,20,40,0.9);border:1px solid #59f;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;animation:notifIn .3s ease-out;white-space:nowrap;}
+@keyframes notifIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+.timer-display{font-size:12px;color:#fc4;text-align:center;margin-bottom:8px;padding:4px 10px;background:rgba(255,150,0,0.15);border-radius:6px;}
+#merchant-banner{position:fixed;top:55px;right:15px;background:rgba(80,30,120,0.9);padding:6px 14px;border-radius:10px;font-size:12px;font-weight:700;z-index:10;display:none;border:1px solid #a5d;}
+</style>
+</head>
+<body>
+
+<div id="blocker">
+<h1>🌱 Grow a Garden</h1>
+<p>A 3D Farming Simulator</p>
+<div class="controls">
+<b>WASD</b> — Move &nbsp;|&nbsp; <b>Space</b> — Jump &nbsp;|&nbsp; <b>E</b> — Interact<br>
+<b>Right Click + Drag</b> — Rotate Camera &nbsp;|&nbsp; <b>Scroll</b> — Zoom<br>
+<b>I</b> — Inventory &nbsp;|&nbsp; <b>Q</b> — Quests &nbsp;|&nbsp; <b>U</b> — Upgrades &nbsp;|&nbsp; <b>P</b> — Pets<br>
+<br>Click anywhere to start!
+</div>
+</div>
+
+<div id="hud" style="display:none;">
+<div class="hud-item"><span class="icon">💰</span><span id="hud-sheckles">500</span></div>
+<div class="hud-item"><span class="icon">🍯</span><span id="hud-honey">0</span></div>
+<div class="hud-item"><span class="icon" id="hud-weather-icon">☀️</span><span id="hud-weather">Clear</span></div>
+<div class="hud-item"><span class="icon" id="hud-time-icon">🌅</span><span id="hud-time">Day</span></div>
+<div class="hud-item"><span class="icon">🌱</span><span id="hud-plots">0/6</span></div>
+<div class="hud-item"><span class="icon">🎒</span><span id="hud-inv">0/20</span></div>
+<div class="hud-item" id="hud-restock" style="cursor:pointer;color:#fc4;" title="Seed/Gear restock timer"><span class="icon">⏰</span><span id="hud-restock-time">5:00</span></div>
+</div>
+
+<div id="weather-banner"></div>
+<div id="interaction-prompt"></div>
+<div id="crosshair"></div>
+<div id="merchant-banner"></div>
+<div id="notification"></div>
+
+<div id="dialogue-box">
+<div class="npc-name"></div>
+<div class="npc-text"></div>
+<div class="options"></div>
+</div>
+
+<!-- Seed Shop -->
+<div class="panel-overlay" id="panel-seeds">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('seeds')">✕</button>
+<h2>🌱 Sam's Seed Shop</h2>
+<div class="timer-display">Restock in: <span id="seed-timer">5:00</span></div>
+<div class="shop-grid" id="seed-grid"></div>
+</div>
+</div>
+
+<!-- Gear Shop -->
+<div class="panel-overlay" id="panel-gear">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('gear')">✕</button>
+<h2>🔧 Eloise's Gear Shop</h2>
+<div class="timer-display">Restock in: <span id="gear-timer">5:00</span></div>
+<div class="shop-grid" id="gear-grid"></div>
+</div>
+</div>
+
+<!-- Pet Shop -->
+<div class="panel-overlay" id="panel-pets-shop">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('pets-shop')">✕</button>
+<h2>🐣 Raphael's Pet Shop</h2>
+<div class="tab-bar">
+<button class="active" onclick="petShopTab('eggs',this)">Buy Eggs</button>
+<button onclick="petShopTab('slots',this)">Equip Slots</button>
+</div>
+<div id="egg-grid" class="shop-grid"></div>
+<div id="slot-upgrades" style="display:none;"></div>
+</div>
+</div>
+
+<!-- Sell Panel -->
+<div class="panel-overlay" id="panel-sell">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('sell')">✕</button>
+<h2>💰 Steven's Sell Stand</h2>
+<p class="subtitle" id="sell-summary"></p>
+<div style="display:flex;gap:10px;margin:12px 0;">
+<button class="btn btn-sell" onclick="sellHeld()" id="btn-sell-held">Sell Held Item</button>
+<button class="btn btn-sell" onclick="sellAll()">Sell Entire Inventory</button>
+</div>
+<div class="sell-breakdown" id="sell-breakdown"></div>
+</div>
+</div>
+
+<!-- Inventory -->
+<div class="panel-overlay" id="panel-inventory">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('inventory')">✕</button>
+<h2>🎒 Inventory</h2>
+<div class="tab-bar">
+<button class="active" onclick="invTab('seeds',this)">Seeds</button>
+<button onclick="invTab('crops',this)">Crops</button>
+<button onclick="invTab('gear',this)">Gear</button>
+</div>
+<div class="inv-grid" id="inv-grid"></div>
+</div>
+</div>
+
+<!-- Pets Panel -->
+<div class="panel-overlay" id="panel-pets">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('pets')">✕</button>
+<h2>🐾 My Pets</h2>
+<div class="tab-bar">
+<button class="active" onclick="myPetsTab('equipped',this)">Equipped</button>
+<button onclick="myPetsTab('all',this)">All Pets</button>
+<button onclick="myPetsTab('mutate',this)">Mutation Station</button>
+</div>
+<div id="pets-content"></div>
+</div>
+</div>
+
+<!-- Upgrades -->
+<div class="panel-overlay" id="panel-upgrades">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('upgrades')">✕</button>
+<h2>⬆️ Upgrades</h2>
+<div id="upgrades-list"></div>
+</div>
+</div>
+
+<!-- Quests -->
+<div class="panel-overlay" id="panel-quests">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('quests')">✕</button>
+<h2>📜 Daily Quests</h2>
+<div id="quests-list"></div>
+</div>
+</div>
+
+<!-- Crafting -->
+<div class="panel-overlay" id="panel-crafting">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('crafting')">✕</button>
+<h2>🔨 Crafting Station</h2>
+<div class="shop-grid" id="craft-grid"></div>
+</div>
+</div>
+
+<!-- Travelling Merchant -->
+<div class="panel-overlay" id="panel-merchant">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('merchant')">✕</button>
+<h2 id="merchant-title">🧙 Travelling Merchant</h2>
+<p class="subtitle" id="merchant-sub"></p>
+<div class="shop-grid" id="merchant-grid"></div>
+</div>
+</div>
+
+<!-- Trading -->
+<div class="panel-overlay" id="panel-trade">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('trade')">✕</button>
+<h2>🤝 Trading</h2>
+<div id="trade-content"></div>
+</div>
+</div>
+
+<!-- Stats -->
+<div class="panel-overlay" id="panel-stats">
+<div class="panel">
+<button class="btn-close" onclick="closePanel('stats')">✕</button>
+<h2>📊 Stats & Progression</h2>
+<div id="stats-content"></div>
+</div>
+</div>
+
+<div class="minimap"><canvas id="minimap-canvas" width="150" height="150"></canvas></div>
+
+<script>
+// ================================================
+// SECTION 1: GAME DATA
+// ================================================
+const RARITY_COLORS={common:'#aaaaaa',uncommon:'#55cc55',rare:'#5599ff',epic:'#aa55dd',legendary:'#ff9900',mythical:'#ff3333',prismatic:'#ff00ff'};
+const RARITY_HEX={common:0xaaaaaa,uncommon:0x55cc55,rare:0x5599ff,epic:0xaa55dd,legendary:0xff9900,mythical:0xff3333,prismatic:0xff00ff};
+const SIZE_NAMES=['Tiny','Small','Medium','Large','Huge','Titanic','Godly'];
+const SIZE_MULTS=[0.5,0.75,1.0,1.5,2.5,4.0,6.0];
+const SIZE_WEIGHTS=[25,25,25,14,7,3,1];
+
+const PLANTS={
+carrot:{name:'Carrot',icon:'🥕',base:15,price:100,reharvest:0,time:30,rarity:'common',color:0xff8800,desc:'Bright orange root.'},
+coconut:{name:'Coconut',icon:'🥥',base:45,price:300,reharvest:3,time:120,rarity:'common',color:0x8b5e3c,desc:'Round brown husk.'},
+lemon:{name:'Lemon',icon:'🍋',base:35,price:200,reharvest:2,time:60,rarity:'common',color:0xffee44,desc:'Bright yellow citrus.'},
+cherry_blossom:{name:'Cherry Blossom',icon:'🌸',base:50,price:250,reharvest:0,time:90,rarity:'common',color:0xff88aa,desc:'Delicate pink flower.'},
+tomato:{name:'Tomato',icon:'🍅',base:80,price:500,reharvest:4,time:120,rarity:'uncommon',color:0xff2222,desc:'Bright red fruit.'},
+corn:{name:'Corn',icon:'🌽',base:90,price:600,reharvest:3,time:150,rarity:'uncommon',color:0xffcc00,desc:'Golden ears.'},
+strawberry:{name:'Strawberry',icon:'🍓',base:70,price:400,reharvest:5,time:90,rarity:'uncommon',color:0xff3355,desc:'Small red berries.'},
+blueberry:{name:'Blueberry',icon:'🫐',base:65,price:350,reharvest:5,time:90,rarity:'uncommon',color:0x4444cc,desc:'Tiny indigo berries.'},
+glowshroom:{name:'Glowshroom',icon:'🍄',base:120,price:800,reharvest:0,time:180,rarity:'uncommon',color:0x00ffcc,desc:'Bioluminescent mushroom.'},
+watermelon:{name:'Watermelon',icon:'🍉',base:150,price:1000,reharvest:0,time:210,rarity:'uncommon',color:0x44aa44,desc:'Massive green melon.'},
+grape:{name:'Grape',icon:'🍇',base:100,price:700,reharvest:6,time:120,rarity:'uncommon',color:0x8844aa,desc:'Purple clusters.'},
+apple:{name:'Apple',icon:'🍎',base:250,price:2500,reharvest:4,time:240,rarity:'rare',color:0xdd2222,desc:'Shiny red apple.'},
+peach:{name:'Peach',icon:'🍑',base:300,price:3000,reharvest:3,time:270,rarity:'rare',color:0xffaa77,desc:'Fuzzy stone fruit.'},
+pineapple:{name:'Pineapple',icon:'🍍',base:350,price:3500,reharvest:0,time:300,rarity:'rare',color:0xddaa00,desc:'Spiky tropical crown.'},
+pumpkin:{name:'Pumpkin',icon:'🎃',base:400,price:4000,reharvest:0,time:300,rarity:'rare',color:0xff7711,desc:'Large orange gourd.'},
+bamboo:{name:'Bamboo',icon:'🎋',base:500,price:5000,reharvest:0,time:300,rarity:'rare',color:0x33aa33,desc:'Tall green stalks.'},
+raspberry:{name:'Raspberry',icon:'🫐',base:200,price:2000,reharvest:4,time:210,rarity:'rare',color:0xee3366,desc:'Pink-red berries.'},
+mango:{name:'Mango',icon:'🥭',base:6500,price:15000,reharvest:3,time:360,rarity:'rare',color:0xffaa00,desc:'Plump tropical fruit.'},
+cacao:{name:'Cacao',icon:'🫘',base:12000,price:50000,reharvest:4,time:480,rarity:'epic',color:0x663311,desc:'Brown jungle pods.'},
+dragon_fruit:{name:'Dragon Fruit',icon:'🐉',base:8000,price:35000,reharvest:0,time:420,rarity:'epic',color:0xff44aa,desc:'Vibrant pink fruit.'},
+rose:{name:'Rose',icon:'🌹',base:6000,price:25000,reharvest:0,time:360,rarity:'epic',color:0xcc0033,desc:'Deep red rose.'},
+celestiberry:{name:'Celestiberry',icon:'⭐',base:9000,price:40000,reharvest:0,time:450,rarity:'epic',color:0x9944ff,desc:'Glowing purple berry.'},
+blood_banana:{name:'Blood Banana',icon:'🍌',base:7500,price:30000,reharvest:3,time:420,rarity:'epic',color:0xaa0000,desc:'Deep crimson banana.'},
+red_lollipop:{name:'Red Lollipop',icon:'🍭',base:5500,price:20000,reharvest:0,time:360,rarity:'epic',color:0xff2244,desc:'Candy swirl plant.'},
+moon_mango:{name:'Moon Mango',icon:'🌙',base:45000,price:200000,reharvest:3,time:720,rarity:'mythical',color:0x8888ff,desc:'Silver crescent fruit.'},
+moon_melon:{name:'Moon Melon',icon:'🌕',base:40000,price:180000,reharvest:0,time:660,rarity:'mythical',color:0xaabbee,desc:'Pale blue melon.'},
+starfruit:{name:'Starfruit',icon:'✨',base:35000,price:150000,reharvest:0,time:600,rarity:'mythical',color:0xffdd00,desc:'Five-pointed star.'},
+venus_fly_trap:{name:'Venus Fly Trap',icon:'🪴',base:30000,price:120000,reharvest:0,time:600,rarity:'mythical',color:0x22bb44,desc:'Snapping jaws.'},
+lotus:{name:'Lotus',icon:'🪷',base:28000,price:100000,reharvest:0,time:540,rarity:'mythical',color:0xffaacc,desc:'Serene pink flower.'},
+dragon_pepper:{name:'Dragon Pepper',icon:'🌶️',base:88000,price:500000,reharvest:2,time:900,rarity:'mythical',color:0xff4400,desc:'Fiery red pepper.'},
+candy_blossom:{name:'Candy Blossom',icon:'🍬',base:100000,price:1000000,reharvest:3,time:1200,rarity:'prismatic',color:0xff66cc,desc:'Multicolored sugar flower.'},
+beanstalk:{name:'Beanstalk',icon:'🫘',base:28000,price:800000,reharvest:11,time:1080,rarity:'prismatic',color:0x22dd44,desc:'Towering green vine.'},
+mushroom:{name:'Mushroom',icon:'🍄',base:151000,price:1500000,reharvest:0,time:1500,rarity:'prismatic',color:0xff2222,desc:'Massive red mushroom.'},
+cursed_fruit:{name:'Cursed Fruit',icon:'👻',base:90000,price:900000,reharvest:4,time:1200,rarity:'prismatic',color:0x5500aa,desc:'Dark smoky fruit.'},
+hive_fruit:{name:'Hive Fruit',icon:'🐝',base:85000,price:850000,reharvest:3,time:1080,rarity:'prismatic',color:0xddaa00,desc:'Honeycomb golden fruit.'},
+bendboo:{name:'Bendboo',icon:'🎍',base:155000,price:2000000,reharvest:0,time:1680,rarity:'prismatic',color:0x44ff88,desc:'Twisted light-bending bamboo.'}
+};
+
+const RESTOCK_CHANCES={common:0.95,uncommon:0.75,rare:0.45,epic:0.20,legendary:0.10,mythical:0.03,prismatic:0.008};
+const RESTOCK_STOCK={common:[5,10],uncommon:[3,5],rare:[2,3],epic:[1,2],legendary:[1,1],mythical:[1,1],prismatic:[1,1]};
+
+const GEAR={
+watering_can:{name:'Watering Can',icon:'🚿',price:50000,uses:10,rarity:'common',desc:'Speeds plant growth. Click on plant to use.'},
+golden_watering:{name:'Golden Watering Can',icon:'💧',price:250000,uses:15,rarity:'rare',desc:'Faster growth + mutation chance bonus.'},
+basic_sprinkler:{name:'Basic Sprinkler',icon:'💦',price:25000,uses:1,rarity:'rare',desc:'Auto-waters crops for 5 min. Place near plants.',duration:300},
+advanced_sprinkler:{name:'Advanced Sprinkler',icon:'🌊',price:50000,uses:1,rarity:'legendary',desc:'Growth + mutation chance for 5 min.',duration:300},
+godly_sprinkler:{name:'Godly Sprinkler',icon:'⛲',price:120000,uses:1,rarity:'mythical',desc:'Growth + mutation + size boost for 5 min.',duration:300},
+master_sprinkler:{name:'Master Sprinkler',icon:'🏛️',price:500000,uses:1,rarity:'prismatic',desc:'Best sprinkler. All bonuses for 10 min.',duration:600},
+grandmaster_sprinkler:{name:'Grandmaster Sprinkler',icon:'👑',price:5000000,uses:1,rarity:'prismatic',desc:'Ultimate single-use. Enormous bonuses.',duration:600},
+shovel:{name:'Shovel',icon:'⛏️',price:10000,uses:5,rarity:'common',desc:'Destroys crops permanently.'},
+trowel:{name:'Trowel',icon:'🔧',price:100000,uses:5,rarity:'rare',desc:'Move plants without losing progress.'},
+recall_wrench:{name:'Recall Wrench',icon:'🔩',price:150000,uses:5,rarity:'uncommon',desc:'Teleport to Gear Shop.'},
+cleaning_spray:{name:'Cleaning Spray',icon:'🧹',price:15000000,uses:1,rarity:'epic',desc:'Removes all mutations from a plant.'},
+favorite_tool:{name:'Favorite Tool',icon:'❤️',price:20000000,uses:-1,rarity:'legendary',desc:'Lock plants to prevent accidental harvest.'},
+reclaimer:{name:'Reclaimer',icon:'♻️',price:250000,uses:1,rarity:'rare',desc:'Turns planted crop back to seed. Crafted.'},
+harvest_tool:{name:'Harvest Tool',icon:'✂️',price:5000,uses:10,rarity:'common',desc:'Speeds up fruit picking.'},
+trading_ticket:{name:'Trading Ticket',icon:'🎫',price:100000,uses:-1,rarity:'uncommon',desc:'Required for trading with players.'},
+lightning_rod:{name:'Lightning Rod',icon:'⚡',price:500000,uses:1,rarity:'legendary',desc:'Attracts lightning during storms. Crafted.'},
+tanning_mirror:{name:'Tanning Mirror',icon:'🪞',price:500000,uses:1,rarity:'mythical',desc:'Focuses sunbeams during heatwaves. Crafted.'},
+levelup_lollipop:{name:'Levelup Lollipop',icon:'🍭',price:10000000,uses:1,rarity:'prismatic',desc:'Instantly +10 pet levels.'},
+honey_sprinkler:{name:'Honey Sprinkler',icon:'🍯',price:0,honeyPrice:30,uses:1,rarity:'legendary',desc:'Applies Honey Glazed mutation.',duration:300},
+bee_staff:{name:'Bee Staff',icon:'🐝',price:0,honeyPrice:25,uses:3,rarity:'legendary',desc:'Attracts bees for Pollinated mutation.'}
+};
+
+const GEAR_RESTOCK={common:0.9,uncommon:0.7,rare:0.5,epic:0.25,legendary:0.12,mythical:0.05,prismatic:0.01};
+
+const EGGS={
+common_egg:{name:'Common Egg',icon:'🥚',price:50000,rarity:'common',pets:['dog','bunny','robin','starfish','chipmunk','gecko','crab','seagull']},
+uncommon_egg:{name:'Uncommon Egg',icon:'🥚',price:200000,rarity:'uncommon',pets:['cat','chicken','pig','deer']},
+rare_egg:{name:'Rare Egg',icon:'🥚',price:1000000,rarity:'rare',pets:['monkey','panda','barn_owl','cow']},
+mythical_egg:{name:'Mythical Egg',icon:'🥚',price:5000000,rarity:'mythical',pets:['sea_otter','polar_bear','red_fox','brown_mouse','mimic_octopus']},
+bug_egg:{name:'Bug Egg',icon:'🪲',price:3000000,rarity:'rare',pets:['giant_ant','praying_mantis','dragonfly']},
+safari_egg:{name:'Safari Egg',icon:'🦒',price:8000000,rarity:'epic',pets:['elephant','giraffe','zebra','cheetah']},
+zen_egg:{name:'Zen Egg',icon:'⛩️',price:12000000,rarity:'mythical',pets:['kitsune','tanuki','kappa']},
+summer_egg:{name:'Summer Egg',icon:'☀️',price:25000000,rarity:'legendary',pets:['flamingo','toucan','orangutan','seal']}
+};
+
+const PETS_DATA={
+dog:{name:'Dog',icon:'🐕',rarity:'common',ability:'Digs up random seeds every ~60s',passiveType:'seed_finder'},
+bunny:{name:'Bunny',icon:'🐰',rarity:'common',ability:'Eats carrots for 1.5x bonus',passiveType:'value_boost'},
+robin:{name:'Robin',icon:'🐦',rarity:'common',ability:'Small growth speed boost',passiveType:'growth_boost'},
+starfish:{name:'Starfish',icon:'⭐',rarity:'common',ability:'Waters 1 plant every ~120s',passiveType:'auto_water'},
+chipmunk:{name:'Chipmunk',icon:'🐿️',rarity:'common',ability:'+1 inventory slot',passiveType:'inv_slot'},
+gecko:{name:'Gecko',icon:'🦎',rarity:'common',ability:'+5% growth speed',passiveType:'growth_boost'},
+crab:{name:'Crab',icon:'🦀',rarity:'common',ability:'Drops small Sheckles occasionally',passiveType:'sheckle_drop'},
+seagull:{name:'Seagull',icon:'🕊️',rarity:'common',ability:'Drops random seed sometimes',passiveType:'seed_finder'},
+cat:{name:'Cat',icon:'🐱',rarity:'uncommon',ability:'Increases fruit size +1.25x',passiveType:'size_boost'},
+chicken:{name:'Chicken',icon:'🐔',rarity:'uncommon',ability:'-10% egg hatch time',passiveType:'hatch_boost'},
+pig:{name:'Pig',icon:'🐷',rarity:'uncommon',ability:'2x variant mutation chance',passiveType:'mutation_boost'},
+deer:{name:'Deer',icon:'🦌',rarity:'uncommon',ability:'Berry plants can remain after harvest',passiveType:'reharvest_boost'},
+monkey:{name:'Monkey',icon:'🐒',rarity:'rare',ability:'Chance to refund seed on harvest',passiveType:'seed_refund'},
+panda:{name:'Panda',icon:'🐼',rarity:'rare',ability:'Bamboo 1.52x bonus',passiveType:'value_boost'},
+barn_owl:{name:'Barn Owl',icon:'🦉',rarity:'rare',ability:'Increases pet XP gain',passiveType:'xp_boost'},
+cow:{name:'Cow',icon:'🐄',rarity:'legendary',ability:'All plants grow faster',passiveType:'growth_boost'},
+sea_otter:{name:'Sea Otter',icon:'🦦',rarity:'legendary',ability:'Auto Wet mutation',passiveType:'auto_water'},
+polar_bear:{name:'Polar Bear',icon:'🐻‍❄️',rarity:'legendary',ability:'Chance for Chilled/Frozen',passiveType:'frost_boost'},
+red_fox:{name:'Red Fox',icon:'🦊',rarity:'legendary',ability:'Duplicates seeds from plots',passiveType:'seed_finder'},
+brown_mouse:{name:'Brown Mouse',icon:'🐭',rarity:'mythical',ability:'+750 XP every 8 min',passiveType:'xp_boost'},
+mimic_octopus:{name:'Mimic Octopus',icon:'🐙',rarity:'mythical',ability:'Copies another pet ability',passiveType:'mimic'},
+giant_ant:{name:'Giant Ant',icon:'🐜',rarity:'mythical',ability:'10% fruit duplication',passiveType:'duplicate'},
+praying_mantis:{name:'Praying Mantis',icon:'🦗',rarity:'mythical',ability:'1.5x mutation chance',passiveType:'mutation_boost'},
+dragonfly:{name:'Dragonfly',icon:'🪰',rarity:'prismatic',ability:'Turns crop golden every 5 min',passiveType:'golden_touch'},
+elephant:{name:'Elephant',icon:'🐘',rarity:'rare',ability:'Stomps to water all crops',passiveType:'auto_water'},
+giraffe:{name:'Giraffe',icon:'🦒',rarity:'mythical',ability:'Eats tall fruit for 1.45-3x value',passiveType:'value_boost'},
+zebra:{name:'Zebra',icon:'🦓',rarity:'uncommon',ability:'Small speed boost to player',passiveType:'speed_boost'},
+cheetah:{name:'Cheetah',icon:'🐆',rarity:'legendary',ability:'Wildfast mutation',passiveType:'mutation_boost'},
+flamingo:{name:'Flamingo',icon:'🦩',rarity:'mythical',ability:'~15x growth boost',passiveType:'growth_boost'},
+toucan:{name:'Toucan',icon:'🦜',rarity:'mythical',ability:'+60% size to tropical crops',passiveType:'size_boost'},
+orangutan:{name:'Orangutan',icon:'🦧',rarity:'mythical',ability:'Crafting may not consume mats',passiveType:'craft_save'},
+seal:{name:'Seal',icon:'🦭',rarity:'mythical',ability:'2% get pet back as egg when selling',passiveType:'special'},
+kitsune:{name:'Kitsune',icon:'🦊',rarity:'prismatic',ability:'Foxfire (90x) every 22 min',passiveType:'mutation_boost'},
+tanuki:{name:'Tanuki',icon:'🦝',rarity:'rare',ability:'Sheckle boost on sells',passiveType:'value_boost'},
+kappa:{name:'Kappa',icon:'🐢',rarity:'rare',ability:'Auto-water nearby plants',passiveType:'auto_water'},
+disco_bee:{name:'Disco Bee',icon:'🐝',rarity:'prismatic',ability:'Disco mutation (125x)',passiveType:'mutation_boost'}
+};
+
+const PET_LEVELS=[
+{name:'Baby',lvl:1,xp:0,mult:1},{name:'Junior',lvl:5,xp:500,mult:1.2},
+{name:'Adult',lvl:15,xp:2500,mult:1.5},{name:'Elder',lvl:30,xp:10000,mult:2},
+{name:'Ancient',lvl:50,xp:50000,mult:3},{name:'Mega',lvl:100,xp:200000,mult:5}
+];
+
+const PET_MUTATIONS=['Shiny','Golden','Rainbow','Windy','Frozen','Shocked','Radiant','Ascended'];
+const PET_MUT_RATES=[30,25,15,10,8,6,4,2];
+
+const GEM_MUTATIONS=[
+{name:'Bronze',mult:1.5,chance:0.03,color:0xcd7f32},{name:'Silver',mult:2,chance:0.02,color:0xc0c0c0},
+{name:'Golden',mult:3,chance:0.015,color:0xffd700},{name:'Amber',mult:4,chance:0.005,color:0xffbf00},
+{name:'Sapphire',mult:6,chance:0.003,color:0x0055ff},{name:'Ruby',mult:8,chance:0.002,color:0xff0033},
+{name:'Emerald',mult:10,chance:0.0015,color:0x00cc44},{name:'Amethyst',mult:12,chance:0.001,color:0x8800cc},
+{name:'Diamond',mult:15,chance:0.0005,color:0xeeffff}
+];
+
+const WEATHER_EVENTS=[
+{name:'Rain',icon:'🌧️',duration:180,freq:0.15,mutation:'Wet',mult:2,night:false,color:0x4488cc},
+{name:'Thunderstorm',icon:'⛈️',duration:120,freq:0.05,mutation:'Shocked',mult:75,night:false,color:0x333355,chance:0.15},
+{name:'Frost',icon:'❄️',duration:120,freq:0.06,mutation:'Chilled',mult:2,night:false,color:0xaaddff},
+{name:'Sandstorm',icon:'🏜️',duration:120,freq:0.03,mutation:'Sandy',mult:3,night:false,color:0xddbb77},
+{name:'Blood Moon',icon:'🌑',duration:180,freq:0.025,mutation:'Bloodlit',mult:4.5,night:true,color:0xaa0000},
+{name:'Meteor Shower',icon:'☄️',duration:120,freq:0.015,mutation:'Celestial',mult:120,night:true,color:0x9944ff,chance:0.1},
+{name:'Heatwave',icon:'🔥',duration:180,freq:0.03,mutation:'Sundried',mult:85,night:false,color:0xff8800},
+{name:'Tornado',icon:'🌪️',duration:60,freq:0.01,mutation:'Twisted',mult:5,night:false,color:0x667788,destructive:true},
+{name:'Acid Rain',icon:'☢️',duration:120,freq:0.01,mutation:'Acidic',mult:25,night:false,color:0x88ff00},
+{name:'Aurora',icon:'🌌',duration:180,freq:0.012,mutation:'Aurora',mult:2,night:true,color:0x44ffaa},
+{name:'Starfall',icon:'🌠',duration:120,freq:0.025,mutation:'Starstruck',mult:6.5,night:true,color:0xffdd44}
+];
+
+const COMBINED_MUTATIONS={
+'Wet+Chilled':{name:'Frozen',mult:10},'Wet+Sandy':{name:'Clay',mult:5},
+'Celestial+Aurora':{name:'Cosmic',mult:240}
+};
+
+const CRAFTING_RECIPES=[
+{name:'Lightning Rod',icon:'⚡',ingredients:['basic_sprinkler','advanced_sprinkler','godly_sprinkler'],cost:500000,time:45,result:'lightning_rod'},
+{name:'Tanning Mirror',icon:'🪞',ingredients:['basic_sprinkler','advanced_sprinkler','godly_sprinkler'],cost:500000,time:45,result:'tanning_mirror'},
+{name:'Reclaimer',icon:'♻️',ingredients:['common_egg','harvest_tool'],cost:250000,time:20,result:'reclaimer'},
+{name:'Small Toy',icon:'🧸',ingredients:['common_egg','coconut'],cost:1000000,time:10,result:'small_toy'},
+{name:'Small Treat',icon:'🍪',ingredients:['common_egg','strawberry','carrot'],cost:500000,time:10,result:'small_treat'},
+{name:'Pet Pouch',icon:'👝',ingredients:['common_egg','small_toy','small_treat'],cost:50000000,time:20,result:'pet_pouch'}
+];
+
+const DAILY_QUESTS=[
+{name:'Green Thumb',desc:'Plant 10 seeds',target:10,type:'plant',reward:{sheckles:0,seedPack:'common'},rewardText:'Common Seed Pack'},
+{name:'Harvest Festival',desc:'Harvest 20 crops',target:20,type:'harvest',reward:{sheckles:50000},rewardText:'50,000 Sheckles'},
+{name:'Mutation Hunter',desc:'Sell 3 mutated crops',target:3,type:'sell_mutated',reward:{sheckles:0,seedPack:'rare'},rewardText:'Rare Seed Pack'},
+{name:'Big Spender',desc:'Spend 100K at shops',target:100000,type:'spend',reward:{sheckles:0,seedPack:'uncommon'},rewardText:'Uncommon Seed Pack'},
+{name:'Sheckle Stacker',desc:'Earn 500K from sales',target:500000,type:'earn',reward:{sheckles:250000},rewardText:'250K Sheckles'},
+{name:'Pet Parent',desc:'Hatch 2 eggs',target:2,type:'hatch',reward:{sheckles:100000},rewardText:'100K Sheckles'},
+{name:'Weather Watcher',desc:'Harvest during weather event',target:1,type:'weather_harvest',reward:{sheckles:200000},rewardText:'200K Sheckles'}
+];
+
+const UPGRADES={
+plot1:{name:'Plot Expansion 1',desc:'+4 soil slots',cost:10000,effect:'plots',value:4},
+plot2:{name:'Plot Expansion 2',desc:'+6 soil slots',cost:50000,effect:'plots',value:6,req:'plot1'},
+plot3:{name:'Plot Expansion 3',desc:'+8 soil slots',cost:250000,effect:'plots',value:8,req:'plot2'},
+plot4:{name:'Plot Expansion 4',desc:'+10 soil slots',cost:1000000,effect:'plots',value:10,req:'plot3'},
+plot5:{name:'Plot Expansion 5',desc:'+12 soil slots',cost:5000000,effect:'plots',value:12,req:'plot4'},
+mega_plot:{name:'Mega Plot',desc:'Doubles total garden',cost:25000000,effect:'mega_plot',value:2,req:'plot5'},
+growth1:{name:'Growth Speed I',desc:'10% faster',cost:100000,effect:'growth',value:0.1},
+growth2:{name:'Growth Speed II',desc:'20% faster',cost:500000,effect:'growth',value:0.2,req:'growth1'},
+growth3:{name:'Growth Speed III',desc:'35% faster',cost:2500000,effect:'growth',value:0.35,req:'growth2'},
+auto_water:{name:'Auto-Water',desc:'Water every 5 min',cost:10000000,effect:'auto_water',value:1},
+mut1:{name:'Mutation Luck I',desc:'+5% mutation',cost:1000000,effect:'mutation',value:0.05},
+mut2:{name:'Mutation Luck II',desc:'+10% mutation',cost:10000000,effect:'mutation',value:0.1,req:'mut1'},
+mut3:{name:'Mutation Luck III',desc:'+15% mutation',cost:50000000,effect:'mutation',value:0.15,req:'mut2'},
+bag1:{name:'Backpack I',desc:'+5 slots',cost:200000,effect:'bag',value:5},
+bag2:{name:'Backpack II',desc:'+10 slots',cost:2000000,effect:'bag',value:10,req:'bag1'},
+bag3:{name:'Backpack III',desc:'+20 slots',cost:20000000,effect:'bag',value:20,req:'bag2'}
+};
+
+const PET_SLOT_COSTS=[0,0,0,5000000,15000000,50000000,150000000,500000000];
+
+const MERCHANT_TYPES=[
+{name:'Spray Merchant',sub:'Mutation Sprays & Tools',icon:'🧪',items:[
+{name:'Growth Spray',icon:'🌿',price:500000,type:'spray',effect:'growth'},{name:'Mutation Spray',icon:'🧬',price:2000000,type:'spray',effect:'mutation'},
+{name:'Size Spray',icon:'📏',price:1500000,type:'spray',effect:'size'},{name:'Rainbow Spray',icon:'🌈',price:50000000,type:'spray',effect:'rainbow'}
+]},
+{name:'Bizzy Bear (Honey)',sub:'Honey-themed gear',icon:'🐻',items:[
+{name:'Honey Jar',icon:'🍯',price:100000,type:'honey_item',gives:5},{name:'Honey Sprinkler',icon:'🍯',price:0,honeyPrice:30,type:'gear',gearId:'honey_sprinkler'},
+{name:'Bee Staff',icon:'🐝',price:0,honeyPrice:25,type:'gear',gearId:'bee_staff'},{name:'Royal Jelly',icon:'👑',price:5000000,type:'honey_item',gives:25}
+]},
+{name:'General Merchant',sub:'Limited seeds, gear & cosmetics',icon:'🎪',items:[
+{name:'Rare Seed Pack',icon:'🎁',price:500000,type:'seed_pack',rarity:'rare'},{name:'Epic Seed Pack',icon:'🎁',price:5000000,type:'seed_pack',rarity:'epic'},
+{name:'Star Caller',icon:'⭐',price:12000000,type:'gear'},{name:'Lucky Charm',icon:'🍀',price:3000000,type:'boost'}
+]}
+];
+
+// ================================================
+// SECTION 2: GAME STATE
+// ================================================
+let state={
+sheckles:500,honey:0,
+garden:[],maxPlots:6,totalPlotUpgrades:0,
+inventory:[],maxInv:20,
+pets:[],equippedPets:[],maxEquipSlots:3,petInvCap:60,
+upgrades:{},
+quests:[],questDay:0,
+seedShopStock:[],gearShopStock:[],
+restockTimer:300,
+weatherTimer:0,currentWeather:null,weatherTimeLeft:0,
+dayTime:0,isNight:false,
+merchantTimer:240,merchantActive:false,merchantType:null,merchantTimeLeft:0,
+totalEarned:0,totalPlanted:0,totalHarvested:0,totalSold:0,totalSpent:0,totalHatched:0,
+heldItem:null,selectedGear:null,
+craftingQueue:null,
+growthSpeedMult:1,mutationLuckBonus:0,
+};
+
+function getMaxPlots(){
+let p=state.maxPlots;
+if(state.upgrades.mega_plot)p*=2;
+return p;
+}
+function getMaxInv(){
+let b=state.maxInv;
+let chipmunks=state.equippedPets.filter(p=>p&&p.type==='chipmunk').length;
+return b+chipmunks;
+}
+
+// ================================================
+// SECTION 3: THREE.JS SETUP
+// ================================================
+let scene,camera,renderer,clock;
+let playerMesh,playerGroup;
+let cameraAngleY=0,cameraAngleX=0.3,cameraDist=12;
+let moveForward=false,moveBack=false,moveLeft=false,moveRight=false,jumping=false;
+let playerVelY=0,playerOnGround=true;
+let playerPos=new THREE.Vector3(0,0,0);
+let rightMouseDown=false,prevMouseX=0,prevMouseY=0;
+let interactTarget=null;
+let gardenPlots3D=[];
+let npcMeshes=[];
+let worldObjects=[];
+let weatherParticles=null;
+let sprinklerMeshes=[];
+let petMeshes3D=[];
+let lightningMesh=null;
+let sunLight,ambientLight,skyColor=new THREE.Color(0x88ccff);
+let started=false;
+let anyPanelOpen=false;
+
+function initThree(){
+scene=new THREE.Scene();
+scene.background=skyColor;
+scene.fog=new THREE.Fog(0x88ccff,80,200);
+
+camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,500);
+renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.insertBefore(renderer.domElement,document.body.firstChild);
+
+ambientLight=new THREE.AmbientLight(0x667788,0.6);
+scene.add(ambientLight);
+sunLight=new THREE.DirectionalLight(0xffeedd,1.0);
+sunLight.position.set(30,50,20);
+sunLight.castShadow=true;
+sunLight.shadow.mapSize.set(2048,2048);
+sunLight.shadow.camera.left=-60;sunLight.shadow.camera.right=60;
+sunLight.shadow.camera.top=60;sunLight.shadow.camera.bottom=-60;
+scene.add(sunLight);
+
+clock=new THREE.Clock();
+createWorld();
+createPlayer();
+updateCamera();
+
+window.addEventListener('resize',()=>{
+camera.aspect=window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth,window.innerHeight);
+});
+}
+
+// Studded texture
+function makeStudTexture(color,size=64){
+const c=document.createElement('canvas');c.width=size;c.height=size;
+const x=c.getContext('2d');
+const col=typeof color==='number'?'#'+color.toString(16).padStart(6,'0'):color;
+x.fillStyle=col;x.fillRect(0,0,size,size);
+x.fillStyle='rgba(255,255,255,0.15)';
+for(let i=8;i<size;i+=16)for(let j=8;j<size;j+=16){x.beginPath();x.arc(i,j,3,0,Math.PI*2);x.fill();}
+x.fillStyle='rgba(0,0,0,0.1)';
+for(let i=8;i<size;i+=16)for(let j=8;j<size;j+=16){x.beginPath();x.arc(i+1,j+1,3,0,Math.PI*2);x.fill();}
+const tex=new THREE.CanvasTexture(c);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+return tex;
+}
+
+function makeTextLabel(text,bgColor='#2a4020',textColor='#ffffff',w=256,h=64){
+const c=document.createElement('canvas');c.width=w;c.height=h;
+const x=c.getContext('2d');
+x.fillStyle=bgColor;x.beginPath();
+const r=10;x.moveTo(r,0);x.lineTo(w-r,0);x.quadraticCurveTo(w,0,w,r);
+x.lineTo(w,h-r);x.quadraticCurveTo(w,h,w-r,h);x.lineTo(r,h);x.quadraticCurveTo(0,h,0,h-r);
+x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);x.fill();
+x.strokeStyle='rgba(255,255,255,0.3)';x.lineWidth=2;x.stroke();
+x.fillStyle=textColor;x.font='bold 22px Nunito,Arial';x.textAlign='center';x.textBaseline='middle';
+x.fillText(text,w/2,h/2);
+const tex=new THREE.CanvasTexture(c);
+const mat=new THREE.SpriteMaterial({map:tex,transparent:true});
+const sprite=new THREE.Sprite(mat);
+sprite.scale.set(w/32,h/32,1);
+return sprite;
+}
+
+function createBox(w,h,d,color,studded=true){
+const tex=studded?makeStudTexture(color):null;
+const mat=studded?new THREE.MeshPhongMaterial({map:tex}):new THREE.MeshPhongMaterial({color});
+const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+mesh.castShadow=true;mesh.receiveShadow=true;
+return mesh;
+}
+
+// ================================================
+// SECTION 4: WORLD BUILDING
+// ================================================
+function createWorld(){
+// Ground
+const groundTex=makeStudTexture(0x44aa33,128);
+groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping;groundTex.repeat.set(16,16);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshPhongMaterial({map:groundTex}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+scene.add(ground);
+
+// Path
+const pathTex=makeStudTexture(0x998866,64);pathTex.wrapS=pathTex.wrapT=THREE.RepeatWrapping;pathTex.repeat.set(8,1);
+const path=new THREE.Mesh(new THREE.PlaneGeometry(6,80),new THREE.MeshPhongMaterial({map:pathTex}));
+path.rotation.x=-Math.PI/2;path.position.set(0,0.01,0);
+scene.add(path);
+
+// Buildings
+createBuilding(-25,0,-30,10,8,8,0x886633,0x44aa33,'Sam\'s Seed Shop','sam',0x55aa33);
+createBuilding(-12,0,-30,8,7,7,0x996644,0xff9900,'Steven\'s Sell Stand','steven',0xddaa33);
+createBuilding(25,0,30,10,8,8,0x44aa55,0xffffff,'Eloise\'s Gear Shop','eloise',0x33aa55);
+createBuilding(12,0,30,8,7,8,0xaa6644,0xff6644,'Raphael\'s Pet Shop','raphael',0xee6644);
+createBuilding(30,0,15,7,6,6,0x7744aa,0xaa55dd,'Crafting Station','crafting',0x8855bb);
+createBuilding(-32,0,-18,6,6,6,0x664488,0xddaaff,'Merchant Spot','merchant',0x9966cc);
+
+// Garden plots
+createGardenPlots();
+
+// Trees (decoration)
+for(let i=0;i<20;i++){
+const tx=-60+Math.random()*120, tz=-50+Math.random()*100;
+if(Math.abs(tx)<20&&Math.abs(tz)<25)continue;
+createTree(tx,tz);
+}
+
+// Fences
+for(let i=-40;i<=40;i+=4){
+createFencePost(i,-22);createFencePost(i,22);
+}
+for(let i=-22;i<=22;i+=4){
+createFencePost(-40,i);createFencePost(40,i);
+}
+}
+
+function createBuilding(x,y,z,w,h,d,wallColor,roofColor,name,npcId,canopyColor){
+const g=new THREE.Group();
+const walls=createBox(w,h,d,wallColor);
+walls.position.y=h/2;
+g.add(walls);
+
+// Roof / canopy
+const roof=createBox(w+2,0.5,d+2,roofColor||canopyColor);
+roof.position.y=h+0.25;
+g.add(roof);
+
+// Canopy overhang
+if(canopyColor){
+const canopy=createBox(w+4,0.3,3,canopyColor);
+canopy.position.set(0,h-1,d/2+1.5);
+g.add(canopy);
+// Support poles
+for(let px of[-w/2-1,w/2+1]){
+const pole=createBox(0.3,h-1,0.3,0x886644);
+pole.position.set(px,(h-1)/2,d/2+2.5);
+g.add(pole);
+}
+}
+
+// Sign
+const label=makeTextLabel(name,'#2a3a20');
+label.position.set(0,h+2,d/2+1);
+g.add(label);
+
+// NPC
+if(npcId&&npcId!=='merchant'){
+const npc=createNPCModel(npcId);
+npc.position.set(0,0,d/2+2);
+g.add(npc);
+npcMeshes.push({mesh:npc,id:npcId,worldPos:new THREE.Vector3(x,0,z+d/2+2)});
+}
+
+g.position.set(x,y,z);
+scene.add(g);
+worldObjects.push(g);
+}
+
+function createNPCModel(id){
+const g=new THREE.Group();
+const colors={sam:0x55aa33,steven:0xddaa33,eloise:0x33aaaa,raphael:0xee6644,crafting:0x8855bb};
+const skinColor=0xffcc99;
+const shirtColor=colors[id]||0x888888;
+
+// Legs
+const lLeg=createBox(0.5,1.5,0.5,0x3344aa,false);lLeg.position.set(-0.3,0.75,0);g.add(lLeg);
+const rLeg=createBox(0.5,1.5,0.5,0x3344aa,false);rLeg.position.set(0.3,0.75,0);g.add(rLeg);
+// Torso
+const torso=createBox(1.2,1.5,0.6,shirtColor);torso.position.set(0,2.25,0);g.add(torso);
+// Arms
+const lArm=createBox(0.4,1.4,0.4,shirtColor);lArm.position.set(-0.8,2.2,0);g.add(lArm);
+const rArm=createBox(0.4,1.4,0.4,shirtColor);rArm.position.set(0.8,2.2,0);g.add(rArm);
+// Head
+const head=createBox(1,1,1,skinColor,false);head.position.set(0,3.5,0);g.add(head);
+// Eyes
+const eyeGeo=new THREE.SphereGeometry(0.08);const eyeMat=new THREE.MeshBasicMaterial({color:0x222222});
+const lEye=new THREE.Mesh(eyeGeo,eyeMat);lEye.position.set(-0.2,3.6,0.5);g.add(lEye);
+const rEye=new THREE.Mesh(eyeGeo,eyeMat);rEye.position.set(0.2,3.6,0.5);g.add(rEye);
+// Smile
+const smileMat=new THREE.MeshBasicMaterial({color:0x993333});
+const smile=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.06,0.05),smileMat);
+smile.position.set(0,3.35,0.5);g.add(smile);
+
+// Name tag
+const tag=makeTextLabel(id.charAt(0).toUpperCase()+id.slice(1),'rgba(0,0,0,0.6)','#ffffff',128,32);
+tag.position.set(0,4.5,0);tag.scale.set(2,0.6,1);g.add(tag);
+
+g.userData={npcId:id};
+return g;
+}
+
+function createTree(x,z){
+const g=new THREE.Group();
+const trunk=createBox(0.8,4,0.8,0x664422);trunk.position.y=2;g.add(trunk);
+const leaves=new THREE.Mesh(new THREE.SphereGeometry(2.5,8,6),new THREE.MeshPhongMaterial({color:0x228833}));
+leaves.position.y=5.5;leaves.castShadow=true;g.add(leaves);
+g.position.set(x,0,z);
+scene.add(g);
+}
+
+function createFencePost(x,z){
+const post=createBox(0.3,1.5,0.3,0x886644);
+post.position.set(x,0.75,z);
+scene.add(post);
+const rail=createBox(3.5,0.2,0.15,0x997755);
+rail.position.set(x,1.2,z);
+scene.add(rail);
+}
+
+function createGardenPlots(){
+gardenPlots3D.forEach(p=>{if(p.mesh)scene.remove(p.mesh);});
+gardenPlots3D=[];
+const totalPlots=getMaxPlots();
+const cols=Math.ceil(Math.sqrt(totalPlots));
+const rows=Math.ceil(totalPlots/cols);
+const spacing=3.5;
+const startX=-(cols-1)*spacing/2;
+const startZ=-(rows-1)*spacing/2;
+
+for(let i=0;i<totalPlots;i++){
+const col=i%cols,row=Math.floor(i/cols);
+const px=startX+col*spacing,pz=startZ+row*spacing;
+
+const soil=createBox(2.8,0.3,2.8,0x553311);
+soil.position.set(px,0.15,pz);
+soil.receiveShadow=true;
+scene.add(soil);
+
+// Soil furrow lines
+const furrow=createBox(2.6,0.05,2.6,0x442200,false);
+furrow.position.set(px,0.31,pz);
+scene.add(furrow);
+
+gardenPlots3D.push({mesh:soil,furrow,x:px,z:pz,index:i,plantMesh:null});
+
+if(i>=state.garden.length){
+state.garden.push(null);
+}
+}
+}
+
+// ================================================
+// SECTION 5: PLAYER CHARACTER
+// ================================================
+function createPlayer(){
+playerGroup=new THREE.Group();
+
+const skinColor=0xffcc99;
+const shirtColor=0x4488dd;
+const pantsColor=0x3344aa;
+
+// Legs
+const lLeg=createBox(0.5,1.5,0.5,pantsColor,false);lLeg.position.set(-0.3,0.75,0);
+lLeg.name='lLeg';playerGroup.add(lLeg);
+const rLeg=createBox(0.5,1.5,0.5,pantsColor,false);rLeg.position.set(0.3,0.75,0);
+rLeg.name='rLeg';playerGroup.add(rLeg);
+// Torso
+const torso=createBox(1.2,1.5,0.6,shirtColor);torso.position.set(0,2.25,0);playerGroup.add(torso);
+// Arms
+const lArm=createBox(0.4,1.4,0.4,shirtColor);lArm.position.set(-0.8,2.2,0);
+lArm.name='lArm';playerGroup.add(lArm);
+const rArm=createBox(0.4,1.4,0.4,shirtColor);rArm.position.set(0.8,2.2,0);
+rArm.name='rArm';playerGroup.add(rArm);
+// Head
+const head=createBox(1.05,1.05,1.05,skinColor,false);head.position.set(0,3.55,0);playerGroup.add(head);
+// Hair
+const hair=createBox(1.1,0.4,1.1,0x553311,false);hair.position.set(0,4.1,0);playerGroup.add(hair);
+// Eyes
+const eyeGeo=new THREE.SphereGeometry(0.08);const eyeMat=new THREE.MeshBasicMaterial({color:0x222222});
+const lEye=new THREE.Mesh(eyeGeo,eyeMat);lEye.position.set(-0.22,3.6,0.53);playerGroup.add(lEye);
+const rEye=new THREE.Mesh(eyeGeo,eyeMat);rEye.position.set(0.22,3.6,0.53);playerGroup.add(rEye);
+
+playerGroup.position.set(0,0,0);
+scene.add(playerGroup);
+}
+
+function updateCamera(){
+const cx=playerPos.x+cameraDist*Math.sin(cameraAngleY)*Math.cos(cameraAngleX);
+const cy=playerPos.y+3+cameraDist*Math.sin(cameraAngleX);
+const cz=playerPos.z+cameraDist*Math.cos(cameraAngleY)*Math.cos(cameraAngleX);
+camera.position.set(cx,cy,cz);
+camera.lookAt(playerPos.x,playerPos.y+2.5,playerPos.z);
+}
+
+// ================================================
+// SECTION 6: PLANT 3D MODELS
+// ================================================
+function createPlant3D(plotIdx){
+const plot=gardenPlots3D[plotIdx];
+const plantData=state.garden[plotIdx];
+if(!plantData||!plot)return;
+
+if(plot.plantMesh){scene.remove(plot.plantMesh);plot.plantMesh=null;}
+
+const info=PLANTS[plantData.type];
+if(!info)return;
+
+const g=new THREE.Group();
+const progress=Math.min(1,(Date.now()-plantData.plantedAt)/(info.time*1000/state.growthSpeedMult));
+const scale=0.3+progress*0.7;
+const isReady=progress>=1;
+
+// Determine plant color with mutations
+let pColor=info.color;
+if(plantData.variantMutation==='Gold')pColor=0xffd700;
+else if(plantData.variantMutation==='Silver')pColor=0xc0c0c0;
+else if(plantData.variantMutation==='Rainbow')pColor=0xff00ff;
+if(plantData.gemMutation){
+const gm=GEM_MUTATIONS.find(g=>g.name===plantData.gemMutation);
+if(gm)pColor=gm.color;
+}
+
+// Stem
+const stemH=1.5*scale;
+const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,stemH,6),
+new THREE.MeshPhongMaterial({color:0x338833}));
+stem.position.y=stemH/2;g.add(stem);
+
+// Main body (fruit/flower) - different shapes per plant type
+const r=info.rarity;
+let bodyGeo;
+if(['carrot','dragon_pepper'].includes(plantData.type)){
+bodyGeo=new THREE.ConeGeometry(0.3*scale,1*scale,8);
+}else if(['watermelon','coconut','pumpkin','moon_melon'].includes(plantData.type)){
+bodyGeo=new THREE.SphereGeometry(0.6*scale,8,8);
+}else if(['mushroom','glowshroom'].includes(plantData.type)){
+bodyGeo=new THREE.SphereGeometry(0.5*scale,8,4);
+}else if(['bamboo','beanstalk','bendboo','corn'].includes(plantData.type)){
+bodyGeo=new THREE.CylinderGeometry(0.15*scale,0.2*scale,2*scale,6);
+}else if(['rose','cherry_blossom','lotus','candy_blossom'].includes(plantData.type)){
+bodyGeo=new THREE.DodecahedronGeometry(0.4*scale);
+}else{
+bodyGeo=new THREE.SphereGeometry(0.4*scale,8,8);
+}
+
+const bodyMat=new THREE.MeshPhongMaterial({color:pColor,emissive:isReady?0x113311:0x000000});
+if(plantData.variantMutation==='Rainbow'){
+bodyMat.emissive=new THREE.Color(0x332233);
+}
+if(plantData.variantMutation==='Gold'){
+bodyMat.emissive=new THREE.Color(0x332200);
+bodyMat.shininess=100;
+}
+
+const body=new THREE.Mesh(bodyGeo,bodyMat);
+body.position.y=stemH+0.3*scale;
+body.castShadow=true;
+g.add(body);
+
+// Leaves
+if(!['mushroom','glowshroom'].includes(plantData.type)){
+for(let i=0;i<3;i++){
+const leaf=new THREE.Mesh(new THREE.PlaneGeometry(0.4*scale,0.2*scale),
+new THREE.MeshPhongMaterial({color:0x44aa33,side:THREE.DoubleSide}));
+leaf.position.set(Math.cos(i*2.1)*0.3,stemH*0.6,Math.sin(i*2.1)*0.3);
+leaf.rotation.y=i*2.1;leaf.rotation.z=0.5;
+g.add(leaf);
+}
+}
+
+// Mushroom cap for mushroom types
+if(['mushroom','glowshroom'].includes(plantData.type)){
+const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.1*scale,0.6*scale,0.3*scale,8),
+new THREE.MeshPhongMaterial({color:pColor,emissive:plantData.type==='glowshroom'?0x005544:0}));
+cap.position.y=stemH+0.6*scale;g.add(cap);
+}
+
+// Ready indicator (sparkle)
+if(isReady){
+const sparkle=new THREE.Mesh(new THREE.OctahedronGeometry(0.15),
+new THREE.MeshBasicMaterial({color:0xffff44}));
+sparkle.position.y=stemH+1.2*scale;
+sparkle.name='sparkle';
+g.add(sparkle);
+}
+
+// Favorite badge
+if(plantData.favorite){
+const heart=new THREE.Mesh(new THREE.SphereGeometry(0.12),
+new THREE.MeshBasicMaterial({color:0xff3355}));
+heart.position.set(0.5,0.5,0.5);g.add(heart);
+}
+
+// Weather mutation glow
+if(plantData.weatherMutations&&plantData.weatherMutations.length>0){
+const glowColor=plantData.weatherMutations.includes('Shocked')?0x44ffff:
+plantData.weatherMutations.includes('Frozen')?0x88ccff:
+plantData.weatherMutations.includes('Celestial')?0xaa44ff:
+plantData.weatherMutations.includes('Sundried')?0xffaa00:0x44ff44;
+const glow=new THREE.PointLight(glowColor,0.5,4);
+glow.position.y=stemH;g.add(glow);
+}
+
+g.position.set(plot.x,0.3,plot.z);
+scene.add(g);
+plot.plantMesh=g;
+}
+
+// ================================================
+// SECTION 7: INPUT HANDLING
+// ================================================
+const keys={};
+document.addEventListener('keydown',e=>{
+if(!started)return;
+keys[e.code]=true;
+if(e.code==='Space'){e.preventDefault();jumping=true;}
+if(e.code==='KeyE'&&!anyPanelOpen)handleInteract();
+if(e.code==='KeyI'){togglePanel('inventory');renderInventory();}
+if(e.code==='KeyQ'){togglePanel('quests');renderQuests();}
+if(e.code==='KeyU'){togglePanel('upgrades');renderUpgrades();}
+if(e.code==='KeyP'){togglePanel('pets');renderMyPets();}
+if(e.code==='Escape')closeAllPanels();
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='Space')jumping=false;});
+
+document.addEventListener('mousedown',e=>{
+if(!started)return;
+if(e.button===2){rightMouseDown=true;prevMouseX=e.clientX;prevMouseY=e.clientY;e.preventDefault();}
+if(e.button===0&&!anyPanelOpen)handleClick(e);
+});
+document.addEventListener('mouseup',e=>{if(e.button===2)rightMouseDown=false;});
+document.addEventListener('mousemove',e=>{
+if(rightMouseDown){
+const dx=e.clientX-prevMouseX,dy=e.clientY-prevMouseY;
+cameraAngleY-=dx*0.005;
+cameraAngleX=Math.max(0.05,Math.min(1.2,cameraAngleX+dy*0.005));
+prevMouseX=e.clientX;prevMouseY=e.clientY;
+}
+});
+document.addEventListener('wheel',e=>{
+if(!started)return;
+cameraDist=Math.max(4,Math.min(30,cameraDist+e.deltaY*0.01));
+});
+document.addEventListener('contextmenu',e=>e.preventDefault());
+
+// Blocker click to start
+document.getElementById('blocker').addEventListener('click',()=>{
+document.getElementById('blocker').style.display='none';
+document.getElementById('hud').style.display='flex';
+started=true;
+loadGame();
+initQuests();
+restockShops();
+});
+
+// ================================================
+// SECTION 8: GAME LOGIC
+// ================================================
+function handleInteract(){
+if(anyPanelOpen)return;
+// Check proximity to NPCs
+for(const npc of npcMeshes){
+const dist=playerPos.distanceTo(npc.worldPos);
+if(dist<6){
+openNPCDialogue(npc.id);
+return;
+}
+}
+// Check proximity to garden plots
+const plotIdx=getClosestPlot(5);
+if(plotIdx>=0){
+const plant=state.garden[plotIdx];
+if(plant){
+const info=PLANTS[plant.type];
+const progress=(Date.now()-plant.plantedAt)/(info.time*1000/state.growthSpeedMult);
+if(progress>=1&&!plant.favorite){
+harvestPlant(plotIdx);
+}else if(plant.favorite){
+notify('❤️ This plant is favorited! Unfavorite first.');
+}else{
+notify('🌱 Still growing... '+Math.floor(progress*100)+'%');
+}
+}else{
+// Empty plot - plant a seed if holding one
+const seedIdx=state.inventory.findIndex(i=>i.category==='seed');
+if(seedIdx>=0){
+plantSeed(plotIdx,seedIdx);
+}else{
+notify('🌰 No seeds! Buy some from Sam.');
+}
+}
+return;
+}
+// Check merchant
+if(state.merchantActive){
+const merchantPos=new THREE.Vector3(-32,0,-18);
+if(playerPos.distanceTo(merchantPos)<8){
+openMerchantShop();
+return;
+}
+}
+}
+
+function handleClick(e){
+// Raycasting for garden plot clicks
+const mouse=new THREE.Vector2(
+(e.clientX/window.innerWidth)*2-1,
+-(e.clientY/window.innerHeight)*2+1
+);
+const raycaster=new THREE.Raycaster();
+raycaster.setFromCamera(mouse,camera);
+const hits=raycaster.intersectObjects(gardenPlots3D.map(p=>p.mesh));
+if(hits.length>0){
+const plot=gardenPlots3D.find(p=>p.mesh===hits[0].object);
+if(plot){
+const dist=playerPos.distanceTo(new THREE.Vector3(plot.x,0,plot.z));
+if(dist<6){
+const plant=state.garden[plot.index];
+if(plant){
+const info=PLANTS[plant.type];
+const progress=(Date.now()-plant.plantedAt)/(info.time*1000/state.growthSpeedMult);
+if(progress>=1&&!plant.favorite){
+harvestPlant(plot.index);
+}
+}else{
+const seedIdx=state.inventory.findIndex(i=>i.category==='seed');
+if(seedIdx>=0)plantSeed(plot.index,seedIdx);
+}
+}
+}
+}
+}
+
+function getClosestPlot(maxDist){
+let closest=-1,minDist=maxDist;
+for(let i=0;i<gardenPlots3D.length;i++){
+const p=gardenPlots3D[i];
+const d=playerPos.distanceTo(new THREE.Vector3(p.x,0,p.z));
+if(d<minDist){minDist=d;closest=i;}
+}
+return closest;
+}
+
+// ================================================
+// SECTION 9: PLANTING & HARVESTING
+// ================================================
+function plantSeed(plotIdx,invIdx){
+if(state.garden[plotIdx])return;
+const seed=state.inventory[invIdx];
+if(!seed||seed.category!=='seed')return;
+
+// Gem mutation roll on purchase was already done
+const plantData={
+type:seed.plantType,
+plantedAt:Date.now(),
+gemMutation:seed.gemMutation||null,
+variantMutation:null,
+weatherMutations:[],
+growthStage:'Unripe',
+favorite:false,
+harvestsLeft:PLANTS[seed.plantType].reharvest||0
+};
+
+state.garden[plotIdx]=plantData;
+state.inventory.splice(invIdx,1);
+state.totalPlanted++;
+updateQuestProgress('plant',1);
+createPlant3D(plotIdx);
+notify('🌱 Planted '+PLANTS[seed.plantType].name+'!');
+playSound('plant');
+updateHUD();
+}
+
+function harvestPlant(plotIdx){
+const plant=state.garden[plotIdx];
+if(!plant)return;
+const info=PLANTS[plant.type];
+const progress=(Date.now()-plant.plantedAt)/(info.time*1000/state.growthSpeedMult);
+if(progress<1)return;
+
+// Roll size
+const sizeIdx=weightedRandom(SIZE_WEIGHTS);
+let sizeName=SIZE_NAMES[sizeIdx];
+let sizeMult=SIZE_MULTS[sizeIdx];
+
+// Cat pet size boost
+if(state.equippedPets.some(p=>p&&p.type==='cat')){
+sizeMult*=1.25;
+}
+if(state.equippedPets.some(p=>p&&p.type==='toucan')&&
+['coconut','pineapple','mango','dragon_fruit','moon_mango'].includes(plant.type)){
+sizeMult*=1.6;
+}
+
+// Roll variant mutation if not already assigned
+if(!plant.variantMutation){
+let variantRoll=Math.random();
+let mutBonus=state.mutationLuckBonus;
+if(state.equippedPets.some(p=>p&&p.type==='pig'))mutBonus+=0.05;
+if(variantRoll<0.001+mutBonus*0.001)plant.variantMutation='Rainbow';
+else if(variantRoll<0.01+mutBonus*0.01)plant.variantMutation='Gold';
+else if(variantRoll<0.1+mutBonus*0.05)plant.variantMutation='Silver';
+}
+
+// Lush stage
+plant.growthStage='Lush';
+
+// Calculate value
+let value=info.base;
+value*=sizeMult;
+value*=3; // Lush
+if(plant.variantMutation==='Rainbow')value*=75;
+else if(plant.variantMutation==='Gold')value*=20;
+else if(plant.variantMutation==='Silver')value*=5;
+
+if(plant.gemMutation){
+const gm=GEM_MUTATIONS.find(g=>g.name===plant.gemMutation);
+if(gm)value*=gm.mult;
+}
+
+plant.weatherMutations.forEach(wm=>{
+const we=WEATHER_EVENTS.find(w=>w.mutation===wm);
+if(we)value*=we.mult;
+// Check combined mutations
+const combos=Object.keys(COMBINED_MUTATIONS);
+});
+
+// Check combined mutations
+const wms=plant.weatherMutations;
+for(const key of Object.keys(COMBINED_MUTATIONS)){
+const parts=key.split('+');
+if(parts.every(p=>wms.includes(p))){
+value*=COMBINED_MUTATIONS[key].mult;
+}
+}
+
+value=Math.floor(value);
+
+const crop={
+category:'crop',
+type:plant.type,
+name:info.name,
+icon:info.icon,
+value:value,
+size:sizeName,
+sizeMult:sizeMult,
+variantMutation:plant.variantMutation,
+gemMutation:plant.gemMutation,
+weatherMutations:[...plant.weatherMutations],
+growthStage:plant.growthStage
+};
+
+if(state.inventory.length<getMaxInv()){
+state.inventory.push(crop);
+state.totalHarvested++;
+updateQuestProgress('harvest',1);
+if(state.currentWeather)updateQuestProgress('weather_harvest',1);
+if(plant.weatherMutations.length>0||plant.variantMutation||plant.gemMutation){
+// Has mutations
+}
+
+// Giant ant duplication
+if(state.equippedPets.some(p=>p&&p.type==='giant_ant')&&Math.random()<0.1){
+if(state.inventory.length<getMaxInv()){
+state.inventory.push({...crop});
+notify('🐜 Giant Ant duplicated the harvest!');
+}
+}
+
+// Handle reharvest
+if(plant.harvestsLeft>1){
+plant.harvestsLeft--;
+plant.plantedAt=Date.now();
+plant.growthStage='Unripe';
+createPlant3D(plotIdx);
+notify('🌾 Harvested '+info.name+'! ('+plant.harvestsLeft+' harvests left) Value: '+formatNum(value));
+}else{
+// Monkey seed refund
+if(state.equippedPets.some(p=>p&&p.type==='monkey')&&Math.random()<0.15){
+state.inventory.push({category:'seed',plantType:plant.type,gemMutation:null,
+name:info.name+' Seed',icon:info.icon});
+notify('🐒 Monkey saved the seed!');
+}
+state.garden[plotIdx]=null;
+const p3d=gardenPlots3D[plotIdx];
+if(p3d&&p3d.plantMesh){scene.remove(p3d.plantMesh);p3d.plantMesh=null;}
+notify('🌾 Harvested '+info.name+'! Value: '+formatNum(value));
+}
+
+playSound('harvest');
+}else{
+notify('🎒 Inventory full!');
+}
+updateHUD();
+}
+
+// ================================================
+// SECTION 10: SELLING
+// ================================================
+function openSellPanel(){
+const crops=state.inventory.filter(i=>i.category==='crop');
+let total=crops.reduce((s,c)=>s+c.value,0);
+document.getElementById('sell-summary').textContent=crops.length+' crops worth '+formatNum(total)+' Sheckles total';
+
+let breakdown='';
+crops.forEach(c=>{
+let muts=[];
+if(c.variantMutation)muts.push(c.variantMutation);
+if(c.gemMutation)muts.push(c.gemMutation);
+c.weatherMutations.forEach(w=>muts.push(w));
+const mutStr=muts.length?' ['+muts.join('+')+']':'';
+breakdown+=c.icon+' '+c.size+' '+c.name+mutStr+' = '+formatNum(c.value)+' Sheckles\n';
+});
+document.getElementById('sell-breakdown').textContent=breakdown||'No crops to sell.';
+const held=state.heldItem;
+document.getElementById('btn-sell-held').textContent=held?'Sell: '+held.name+' ('+formatNum(held.value)+')':'Sell Held (none)';
+openPanel('sell');
+}
+
+function sellAll(){
+const crops=state.inventory.filter(i=>i.category==='crop');
+if(crops.length===0){notify('📦 Nothing to sell!');return;}
+let total=0;
+crops.forEach(c=>{
+total+=c.value;
+if(c.weatherMutations.length>0||c.variantMutation||c.gemMutation)
+updateQuestProgress('sell_mutated',1);
+});
+
+// Friend bonus (simulated 1 friend)
+total=Math.floor(total*1.1);
+
+state.sheckles+=total;
+state.totalEarned+=total;
+state.totalSold+=crops.length;
+updateQuestProgress('earn',total);
+state.inventory=state.inventory.filter(i=>i.category!=='crop');
+
+playSound('sell');
+notify('💰 Sold '+crops.length+' crops for '+formatNum(total)+' Sheckles!');
+closePanel('sell');
+openNPCDialogue('steven','"Wow, clearing out the whole lot? Here\'s '+formatNum(total)+' Sheckles! You\'ve been busy!"');
+updateHUD();
+}
+
+function sellHeld(){
+const cropIdx=state.inventory.findIndex(i=>i.category==='crop');
+if(cropIdx<0){notify('📦 No crops to sell!');return;}
+const crop=state.inventory[cropIdx];
+let val=Math.floor(crop.value*1.1);
+state.sheckles+=val;state.totalEarned+=val;state.totalSold++;
+updateQuestProgress('earn',val);
+if(crop.weatherMutations.length>0||crop.variantMutation||crop.gemMutation)
+updateQuestProgress('sell_mutated',1);
+state.inventory.splice(cropIdx,1);
+playSound('sell');
+notify('💰 Sold '+crop.name+' for '+formatNum(val)+' Sheckles!');
+updateHUD();
+openSellPanel();
+}
+
+// ================================================
+// SECTION 11: SHOPS
+// ================================================
+function restockShops(){
+// Seed shop
+state.seedShopStock=[];
+for(const[id,p]of Object.entries(PLANTS)){
+const chance=RESTOCK_CHANCES[p.rarity]||0;
+if(Math.random()<chance){
+const range=RESTOCK_STOCK[p.rarity]||[1,1];
+const stock=range[0]+Math.floor(Math.random()*(range[1]-range[0]+1));
+state.seedShopStock.push({id,stock});
+}
+}
+// Gear shop
+state.gearShopStock=[];
+for(const[id,g]of Object.entries(GEAR)){
+if(g.honeyPrice&&!g.price)continue;
+const chance=GEAR_RESTOCK[g.rarity]||0;
+if(Math.random()<chance){
+state.gearShopStock.push({id,stock:1+Math.floor(Math.random()*2)});
+}
+}
+state.restockTimer=300;
+}
+
+function renderSeedShop(){
+const grid=document.getElementById('seed-grid');
+grid.innerHTML='';
+state.seedShopStock.forEach(item=>{
+const p=PLANTS[item.id];
+if(!p)return;
+const card=document.createElement('div');
+card.className='shop-card r-'+p.rarity;
+card.innerHTML=`
+<span class="icon">${p.icon}</span>
+<div class="name">${p.name}</div>
+<span class="rarity">${p.rarity.toUpperCase()}</span>
+<div class="price">💰 ${formatNum(p.price)}</div>
+<div class="stock">${item.stock>0?'×'+item.stock+' in stock':'OUT OF STOCK'}</div>
+${item.stock>0?'<button class="btn btn-buy" style="margin-top:6px;font-size:11px;" onclick="buySeed(\''+item.id+'\')">BUY</button>':''}
+`;
+grid.appendChild(card);
+});
+if(state.seedShopStock.length===0)grid.innerHTML='<p style="color:#888;padding:20px;">No seeds in stock. Wait for restock!</p>';
+}
+
+function buySeed(id){
+const item=state.seedShopStock.find(s=>s.id===id);
+const p=PLANTS[id];
+if(!item||item.stock<=0){notify('❌ Out of stock!');return;}
+if(state.sheckles<p.price){notify('❌ Not enough Sheckles!');return;}
+if(state.inventory.length>=getMaxInv()){notify('🎒 Inventory full!');return;}
+
+state.sheckles-=p.price;
+state.totalSpent+=p.price;
+updateQuestProgress('spend',p.price);
+item.stock--;
+
+// Gem mutation roll
+let gem=null;
+const roll=Math.random();
+let cumul=0;
+for(const gm of GEM_MUTATIONS){
+cumul+=gm.chance;
+if(roll<cumul){gem=gm.name;break;}
+}
+
+state.inventory.push({category:'seed',plantType:id,gemMutation:gem,name:p.name+' Seed',icon:p.icon});
+
+if(gem){
+notify('✨ LUCKY! Your '+p.name+' seed has a '+gem+' mutation!');
+playSound('mutation');
+}else{
+notify('🌱 Bought '+p.name+' Seed!');
+}
+playSound('buy');
+renderSeedShop();
+updateHUD();
+}
+
+function renderGearShop(){
+const grid=document.getElementById('gear-grid');
+grid.innerHTML='';
+state.gearShopStock.forEach(item=>{
+const g=GEAR[item.id];
+if(!g)return;
+const card=document.createElement('div');
+card.className='shop-card r-'+g.rarity;
+card.innerHTML=`
+<span class="icon">${g.icon}</span>
+<div class="name">${g.name}</div>
+<span class="rarity">${g.rarity.toUpperCase()}</span>
+<div class="price">💰 ${formatNum(g.price)}</div>
+<div class="stock">${item.stock>0?'×'+item.stock:'OUT OF STOCK'}</div>
+<div style="font-size:10px;color:#889;margin:3px 0;">${g.desc}</div>
+${item.stock>0?'<button class="btn btn-buy" style="margin-top:4px;font-size:11px;" onclick="buyGear(\''+item.id+'\')">BUY</button>':''}
+`;
+grid.appendChild(card);
+});
+}
+
+function buyGear(id){
+const item=state.gearShopStock.find(s=>s.id===id);
+const g=GEAR[id];
+if(!item||item.stock<=0){notify('❌ Out of stock!');return;}
+if(g.honeyPrice){
+if(state.honey<g.honeyPrice){notify('❌ Not enough Honey!');return;}
+state.honey-=g.honeyPrice;
+}else{
+if(state.sheckles<g.price){notify('❌ Not enough Sheckles!');return;}
+state.sheckles-=g.price;state.totalSpent+=g.price;
+updateQuestProgress('spend',g.price);
+}
+if(state.inventory.length>=getMaxInv()){notify('🎒 Inventory full!');return;}
+item.stock--;
+state.inventory.push({category:'gear',gearType:id,name:g.name,icon:g.icon,uses:g.uses,maxUses:g.uses});
+notify('🔧 Bought '+g.name+'!');
+playSound('buy');
+renderGearShop();
+updateHUD();
+}
+
+// ================================================
+// SECTION 12: PET SYSTEM
+// ================================================
+function renderEggShop(){
+const grid=document.getElementById('egg-grid');
+grid.innerHTML='';
+for(const[id,egg]of Object.entries(EGGS)){
+const card=document.createElement('div');
+card.className='shop-card r-'+egg.rarity;
+card.innerHTML=`
+<span class="icon" style="font-size:36px;">${egg.icon}</span>
+<div class="name">${egg.name}</div>
+<span class="rarity">${egg.rarity.toUpperCase()}</span>
+<div class="price">💰 ${formatNum(egg.price)}</div>
+<div style="font-size:10px;color:#889;">Pets: ${egg.pets.map(p=>PETS_DATA[p]?PETS_DATA[p].icon:'?').join('')}</div>
+<button class="btn btn-buy" style="margin-top:6px;font-size:11px;" onclick="buyEgg('${id}')">BUY EGG</button>
+`;
+grid.appendChild(card);
+}
+}
+
+function buyEgg(eggId){
+const egg=EGGS[eggId];
+if(!egg)return;
+if(state.sheckles<egg.price){notify('❌ Not enough Sheckles!');return;}
+if(state.pets.length>=state.petInvCap){notify('🐾 Pet inventory full!');return;}
+state.sheckles-=egg.price;state.totalSpent+=egg.price;
+updateQuestProgress('spend',egg.price);
+
+// Hatch - roll for pet rarity
+const petPool=egg.pets;
+const petId=petPool[Math.floor(Math.random()*petPool.length)];
+const petInfo=PETS_DATA[petId];
+if(!petInfo)return;
+
+const newPet={
+id:Date.now()+'_'+Math.random(),
+type:petId,
+name:petInfo.name,
+icon:petInfo.icon,
+rarity:petInfo.rarity,
+ability:petInfo.ability,
+level:1,xp:0,
+stage:'Baby',
+mutation:null
+};
+
+state.pets.push(newPet);
+state.totalHatched++;
+updateQuestProgress('hatch',1);
+
+playSound('hatch');
+notify('🐣 Hatched a '+petInfo.rarity.toUpperCase()+' '+petInfo.name+'!');
+updateHUD();
+renderEggShop();
+}
+
+function renderMyPets(tab='equipped'){
+const content=document.getElementById('pets-content');
+content.innerHTML='';
+
+if(tab==='equipped'){
+content.innerHTML='<h3 style="font-size:14px;margin-bottom:8px;">Equipped Pets ('+state.equippedPets.filter(p=>p).length+'/'+state.maxEquipSlots+')</h3>';
+const grid=document.createElement('div');
+grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;';
+
+for(let i=0;i<state.maxEquipSlots;i++){
+const pet=state.equippedPets[i];
+const card=document.createElement('div');
+card.className='pet-card';
+if(pet){
+const stage=getPetStage(pet);
+card.innerHTML=`
+<div class="pet-icon">${pet.icon}</div>
+<div class="pet-name">${pet.name}</div>
+<div class="pet-level">Lv.${pet.level} ${stage.name}${pet.mutation?' ✨'+pet.mutation:''}</div>
+<div style="font-size:9px;color:#888;">${pet.ability}</div>
+<div class="xp-bar"><div class="xp-fill" style="width:${getXpPercent(pet)}%"></div></div>
+<button class="btn btn-action" style="font-size:10px;margin-top:4px;" onclick="unequipPet(${i})">Unequip</button>
+`;
+}else{
+card.innerHTML='<div style="font-size:24px;color:#444;">➕</div><div style="font-size:11px;color:#666;">Empty Slot</div>';
+card.onclick=()=>{renderMyPets('all');};
+}
+grid.appendChild(card);
+}
+content.appendChild(grid);
+
+}else if(tab==='all'){
+content.innerHTML='<h3 style="font-size:14px;margin-bottom:8px;">All Pets ('+state.pets.length+'/'+state.petInvCap+')</h3>';
+const grid=document.createElement('div');
+grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;';
+state.pets.forEach((pet,idx)=>{
+const card=document.createElement('div');
+card.className='pet-card';
+const equipped=state.equippedPets.some(p=>p&&p.id===pet.id);
+const stage=getPetStage(pet);
+card.innerHTML=`
+<div class="pet-icon">${pet.icon}</div>
+<div class="pet-name">${pet.name}</div>
+<div class="pet-level">Lv.${pet.level} ${stage.name}</div>
+<div class="xp-bar"><div class="xp-fill" style="width:${getXpPercent(pet)}%"></div></div>
+${equipped?'<span style="font-size:10px;color:#4f4;">✓ Equipped</span>':
+'<button class="btn btn-action" style="font-size:10px;margin-top:3px;" onclick="equipPet('+idx+')">Equip</button>'}
+`;
+grid.appendChild(card);
+});
+content.appendChild(grid);
+
+}else if(tab==='mutate'){
+content.innerHTML=`<h3 style="font-size:14px;margin-bottom:8px;">Pet Mutation Station</h3>
+<p style="font-size:12px;color:#889;margin-bottom:10px;">Mutate Ancient+ (Lv50) pets for 500M Sheckles. Possible: ${PET_MUTATIONS.join(', ')}</p>`;
+const eligible=state.pets.filter(p=>p.level>=50&&!p.mutation);
+if(eligible.length===0){
+content.innerHTML+='<p style="color:#888;">No eligible pets (need Level 50+, unmutated).</p>';
+}else{
+const grid=document.createElement('div');
+grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;';
+eligible.forEach(pet=>{
+const card=document.createElement('div');
+card.className='pet-card';
+card.innerHTML=`
+<div class="pet-icon">${pet.icon}</div>
+<div class="pet-name">${pet.name} Lv.${pet.level}</div>
+<button class="btn btn-special" style="font-size:10px;margin-top:4px;" onclick="mutatePet('${pet.id}')">Mutate (500M)</button>
+`;
+grid.appendChild(card);
+});
+content.appendChild(grid);
+}
+}
+}
+
+function getPetStage(pet){
+for(let i=PET_LEVELS.length-1;i>=0;i--){
+if(pet.level>=PET_LEVELS[i].lvl)return PET_LEVELS[i];
+}
+return PET_LEVELS[0];
+}
+
+function getXpPercent(pet){
+const curr=getPetStage(pet);
+let nextIdx=PET_LEVELS.findIndex(l=>l===curr)+1;
+if(nextIdx>=PET_LEVELS.length)return 100;
+const next=PET_LEVELS[nextIdx];
+return Math.min(100,((pet.xp-curr.xp)/(next.xp-curr.xp))*100);
+}
+
+function equipPet(idx){
+const pet=state.pets[idx];
+if(!pet)return;
+if(state.equippedPets.some(p=>p&&p.id===pet.id)){notify('Already equipped!');return;}
+const slot=state.equippedPets.findIndex(p=>!p);
+if(slot<0){
+if(state.equippedPets.length<state.maxEquipSlots){
+state.equippedPets.push(pet);
+}else{
+notify('❌ No empty pet slots!');return;
+}
+}else{
+state.equippedPets[slot]=pet;
+}
+updatePetMeshes();
+notify('🐾 Equipped '+pet.name+'!');
+renderMyPets('equipped');
+}
+
+function unequipPet(slotIdx){
+state.equippedPets[slotIdx]=null;
+updatePetMeshes();
+renderMyPets('equipped');
+}
+
+function mutatePet(petId){
+if(state.sheckles<500000000){notify('❌ Need 500M Sheckles!');return;}
+const pet=state.pets.find(p=>p.id===petId);
+if(!pet||pet.mutation)return;
+state.sheckles-=500000000;
+const roll=weightedRandom(PET_MUT_RATES);
+pet.mutation=PET_MUTATIONS[roll];
+notify('✨ '+pet.name+' gained mutation: '+pet.mutation+'!');
+playSound('mutation');
+renderMyPets('mutate');
+updateHUD();
+}
+
+function petShopTab(tab,btn){
+btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+document.getElementById('egg-grid').style.display=tab==='eggs'?'grid':'none';
+document.getElementById('slot-upgrades').style.display=tab==='slots'?'block':'none';
+if(tab==='slots')renderSlotUpgrades();
+if(tab==='eggs')renderEggShop();
+}
+
+function renderSlotUpgrades(){
+const div=document.getElementById('slot-upgrades');
+div.innerHTML='<h3 style="margin-bottom:10px;">Pet Equip Slots (Current: '+state.maxEquipSlots+')</h3>';
+for(let i=3;i<8;i++){
+const cost=PET_SLOT_COSTS[i];
+const bought=state.maxEquipSlots>i;
+const row=document.createElement('div');
+row.className='upgrade-row';
+row.innerHTML=`
+<div class="info"><b>Slot ${i+1}</b></div>
+<span class="cost">${formatNum(cost)}</span>
+${bought?'<span style="color:#4f4;">✓ Owned</span>':
+'<button class="btn btn-buy" onclick="buyPetSlot('+i+')">Buy</button>'}
+`;
+div.appendChild(row);
+}
+}
+
+function buyPetSlot(idx){
+const cost=PET_SLOT_COSTS[idx];
+if(state.sheckles<cost){notify('❌ Not enough!');return;}
+if(state.maxEquipSlots>idx)return;
+state.sheckles-=cost;state.maxEquipSlots=idx+1;
+while(state.equippedPets.length<state.maxEquipSlots)state.equippedPets.push(null);
+notify('🐾 Unlocked pet slot '+(idx+1)+'!');
+playSound('buy');
+renderSlotUpgrades();
+updateHUD();
+}
+
+function myPetsTab(tab,btn){
+btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+renderMyPets(tab);
+}
+
+function updatePetMeshes(){
+petMeshes3D.forEach(m=>scene.remove(m));
+petMeshes3D=[];
+state.equippedPets.forEach((pet,i)=>{
+if(!pet)return;
+const info=PETS_DATA[pet.type];
+if(!info)return;
+const color=RARITY_HEX[info.rarity]||0x888888;
+const g=new THREE.Group();
+const body=new THREE.Mesh(new THREE.SphereGeometry(0.4,8,8),new THREE.MeshPhongMaterial({color}));
+body.position.y=0.5;g.add(body);
+const head=new THREE.Mesh(new THREE.SphereGeometry(0.25,8,8),new THREE.MeshPhongMaterial({color}));
+head.position.set(0,0.9,0.2);g.add(head);
+const eyeGeo=new THREE.SphereGeometry(0.05);
+const eyeMat=new THREE.MeshBasicMaterial({color:0x000000});
+g.add(new THREE.Mesh(eyeGeo,eyeMat).translateX(-0.1).translateY(0.95).translateZ(0.35));
+g.add(new THREE.Mesh(eyeGeo,eyeMat).translateX(0.1).translateY(0.95).translateZ(0.35));
+g.userData={petIdx:i,angle:i*(Math.PI*2/state.maxEquipSlots)};
+scene.add(g);
+petMeshes3D.push(g);
+});
+}
+
+// ================================================
+// SECTION 13: WEATHER SYSTEM
+// ================================================
+function updateWeather(dt){
+if(state.currentWeather){
+state.weatherTimeLeft-=dt;
+if(state.weatherTimeLeft<=0){
+endWeather();
+}
+}else{
+state.weatherTimer-=dt;
+if(state.weatherTimer<=0){
+tryStartWeather();
+state.weatherTimer=30+Math.random()*60;
+}
+}
+}
+
+function tryStartWeather(){
+const candidates=WEATHER_EVENTS.filter(w=>{
+if(w.night&&!state.isNight)return false;
+return Math.random()<w.freq*3;
+});
+if(candidates.length===0)return;
+const weather=candidates[Math.floor(Math.random()*candidates.length)];
+startWeather(weather);
+}
+
+function startWeather(weather){
+state.currentWeather=weather;
+state.weatherTimeLeft=weather.duration;
+
+const banner=document.getElementById('weather-banner');
+banner.textContent=weather.icon+' '+weather.name+'!';
+banner.style.display='block';
+banner.style.borderColor='#'+weather.color.toString(16).padStart(6,'0');
+
+// Apply mutations to garden
+applyWeatherMutations(weather);
+
+// Visual effects
+createWeatherParticles(weather);
+
+// Tornado destruction
+if(weather.destructive){
+state.garden.forEach((plant,i)=>{
+if(plant&&!plant.favorite&&Math.random()<0.08){
+state.garden[i]=null;
+const p3d=gardenPlots3D[i];
+if(p3d&&p3d.plantMesh){scene.remove(p3d.plantMesh);p3d.plantMesh=null;}
+notify('🌪️ Tornado destroyed a '+PLANTS[plant.type].name+'!');
+}
+});
+}
+
+// Sky color changes
+if(weather.name==='Blood Moon'){
+scene.background=new THREE.Color(0x330000);
+scene.fog.color=new THREE.Color(0x330000);
+ambientLight.color=new THREE.Color(0xff2222);
+}else if(weather.name==='Aurora'){
+scene.background=new THREE.Color(0x112244);
+ambientLight.color=new THREE.Color(0x44ffaa);
+}else if(weather.name==='Thunderstorm'){
+scene.background=new THREE.Color(0x222233);
+scene.fog.color=new THREE.Color(0x222233);
+}
+
+updateHUD();
+}
+
+function applyWeatherMutations(weather){
+const mutChance=weather.chance||0.2;
+const bonus=state.mutationLuckBonus;
+state.garden.forEach((plant,i)=>{
+if(!plant)return;
+if(Math.random()<mutChance+bonus){
+if(!plant.weatherMutations.includes(weather.mutation)){
+plant.weatherMutations.push(weather.mutation);
+createPlant3D(i);
+
+// Check combined mutations
+for(const key of Object.keys(COMBINED_MUTATIONS)){
+const parts=key.split('+');
+if(parts.every(p=>plant.weatherMutations.includes(p))){
+notify('🌟 COMBINED MUTATION: '+COMBINED_MUTATIONS[key].name+' ('+COMBINED_MUTATIONS[key].mult+'x)!');
+playSound('mutation');
+}
+}
+}
+}
+});
+}
+
+function endWeather(){
+state.currentWeather=null;
+document.getElementById('weather-banner').style.display='none';
+removeWeatherParticles();
+// Reset sky
+updateDayNight();
+updateHUD();
+}
+
+function createWeatherParticles(weather){
+removeWeatherParticles();
+const count=weather.name==='Rain'||weather.name==='Thunderstorm'?500:
+weather.name==='Frost'?300:weather.name==='Sandstorm'?400:
+weather.name==='Acid Rain'?400:weather.name==='Starfall'?50:200;
+
+const geo=new THREE.BufferGeometry();
+const positions=new Float32Array(count*3);
+for(let i=0;i<count;i++){
+positions[i*3]=Math.random()*100-50;
+positions[i*3+1]=Math.random()*30+5;
+positions[i*3+2]=Math.random()*100-50;
+}
+geo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+
+const mat=new THREE.PointsMaterial({
+color:weather.color,
+size:weather.name==='Starfall'?0.8:weather.name==='Sandstorm'?0.3:0.15,
+transparent:true,opacity:0.7
+});
+weatherParticles=new THREE.Points(geo,mat);
+weatherParticles.userData={weather:weather.name,speed:weather.name==='Sandstorm'?0.1:0.3};
+scene.add(weatherParticles);
+}
+
+function removeWeatherParticles(){
+if(weatherParticles){scene.remove(weatherParticles);weatherParticles=null;}
+if(lightningMesh){scene.remove(lightningMesh);lightningMesh=null;}
+}
+
+function updateWeatherParticles(dt){
+if(!weatherParticles)return;
+const pos=weatherParticles.geometry.attributes.position;
+const spd=weatherParticles.userData.speed||0.3;
+const name=weatherParticles.userData.weather;
+for(let i=0;i<pos.count;i++){
+if(name==='Sandstorm'){
+pos.array[i*3]+=spd*2;
+pos.array[i*3+1]-=spd*0.1;
+if(pos.array[i*3]>50)pos.array[i*3]=-50;
+}else if(name==='Starfall'){
+pos.array[i*3]+=spd*0.5;
+pos.array[i*3+1]-=spd*2;
+if(pos.array[i*3+1]<0){pos.array[i*3+1]=30;pos.array[i*3]=Math.random()*100-50;}
+}else{
+pos.array[i*3+1]-=spd;
+if(pos.array[i*3+1]<0)pos.array[i*3+1]=30+Math.random()*5;
+}
+}
+pos.needsUpdate=true;
+
+// Thunderstorm lightning
+if(name==='Thunderstorm'&&Math.random()<0.003){
+triggerLightning();
+}
+}
+
+function triggerLightning(){
+// Flash
+ambientLight.intensity=3;
+setTimeout(()=>{ambientLight.intensity=0.6;},100);
+setTimeout(()=>{ambientLight.intensity=2;},200);
+setTimeout(()=>{ambientLight.intensity=0.6;},300);
+
+// Lightning bolt mesh
+if(lightningMesh)scene.remove(lightningMesh);
+const x=Math.random()*40-20,z=Math.random()*40-20;
+const geo=new THREE.CylinderGeometry(0.05,0.2,25,4);
+const mat=new THREE.MeshBasicMaterial({color:0xffff88});
+lightningMesh=new THREE.Mesh(geo,mat);
+lightningMesh.position.set(x,12.5,z);
+scene.add(lightningMesh);
+playSound('thunder');
+setTimeout(()=>{if(lightningMesh){scene.remove(lightningMesh);lightningMesh=null;}},200);
+
+// Check if lightning hit any garden plot with lightning rod
+state.garden.forEach((plant,i)=>{
+if(!plant)return;
+const plot=gardenPlots3D[i];
+if(!plot)return;
+const dist=Math.sqrt((plot.x-x)**2+(plot.z-z)**2);
+const hasRod=state.inventory.some(item=>item.gearType==='lightning_rod');
+const hitRange=hasRod?15:5;
+if(dist<hitRange&&Math.random()<(hasRod?0.8:0.15)){
+if(!plant.weatherMutations.includes('Shocked')){
+plant.weatherMutations.push('Shocked');
+createPlant3D(i);
+notify('⚡ Lightning struck your '+PLANTS[plant.type].name+'! SHOCKED mutation!');
+playSound('mutation');
+}
+}
+});
+}
+
+// ================================================
+// SECTION 14: DAY/NIGHT CYCLE
+// ================================================
+function updateDayNight(){
+if(state.currentWeather)return;
+state.dayTime=(state.dayTime+0.0002)%1;
+state.isNight=state.dayTime>0.5;
+
+let skyR,skyG,skyB,lightIntensity;
+if(state.dayTime<0.25){
+const t=state.dayTime/0.25;
+skyR=0.2+t*0.3;skyG=0.3+t*0.5;skyB=0.5+t*0.5;
+lightIntensity=0.4+t*0.6;
+}else if(state.dayTime<0.5){
+const t=(state.dayTime-0.25)/0.25;
+skyR=0.5-t*0.3;skyG=0.8-t*0.5;skyB=1.0-t*0.5;
+lightIntensity=1.0-t*0.4;
+}else if(state.dayTime<0.75){
+const t=(state.dayTime-0.5)/0.25;
+skyR=0.2-t*0.15;skyG=0.3-t*0.2;skyB=0.5-t*0.2;
+lightIntensity=0.6-t*0.3;
+}else{
+const t=(state.dayTime-0.75)/0.25;
+skyR=0.05+t*0.15;skyG=0.1+t*0.2;skyB=0.3+t*0.2;
+lightIntensity=0.3+t*0.1;
+}
+
+scene.background=new THREE.Color(skyR,skyG,skyB);
+scene.fog.color=new THREE.Color(skyR,skyG,skyB);
+sunLight.intensity=lightIntensity;
+ambientLight.intensity=0.3+lightIntensity*0.3;
+
+const angle=state.dayTime*Math.PI*2;
+sunLight.position.set(Math.cos(angle)*40,Math.sin(angle)*40+10,20);
+
+const timeIcon=document.getElementById('hud-time-icon');
+const timeText=document.getElementById('hud-time');
+if(state.dayTime<0.25){timeIcon.textContent='🌅';timeText.textContent='Morning';}
+else if(state.dayTime<0.5){timeIcon.textContent='☀️';timeText.textContent='Day';}
+else if(state.dayTime<0.75){timeIcon.textContent='🌆';timeText.textContent='Evening';}
+else{timeIcon.textContent='🌙';timeText.textContent='Night';}
+}
+
+// ================================================
+// SECTION 15: MERCHANT SYSTEM
+// ================================================
+function updateMerchant(dt){
+if(state.merchantActive){
+state.merchantTimeLeft-=dt;
+const banner=document.getElementById('merchant-banner');
+banner.style.display='block';
+banner.textContent='🧙 '+state.merchantType.name+' — '+Math.ceil(state.merchantTimeLeft)+'s left';
+if(state.merchantTimeLeft<=0){
+state.merchantActive=false;
+banner.style.display='none';
+state.merchantTimer=240;
+notify('🧙 The Travelling Merchant has departed!');
+}
+}else{
+state.merchantTimer-=dt;
+if(state.merchantTimer<=0){
+spawnMerchant();
+}
+}
+}
+
+function spawnMerchant(){
+const type=MERCHANT_TYPES[Math.floor(Math.random()*MERCHANT_TYPES.length)];
+state.merchantActive=true;
+state.merchantType=type;
+state.merchantTimeLeft=180;
+notify('🧙 '+type.name+' has arrived! Visit the Merchant Spot!');
+}
+
+function openMerchantShop(){
+if(!state.merchantActive)return;
+const type=state.merchantType;
+document.getElementById('merchant-title').textContent=type.icon+' '+type.name;
+document.getElementById('merchant-sub').textContent=type.sub+' — '+Math.ceil(state.merchantTimeLeft)+'s remaining';
+const grid=document.getElementById('merchant-grid');
+grid.innerHTML='';
+type.items.forEach((item,idx)=>{
+const card=document.createElement('div');
+card.className='shop-card';
+const priceStr=item.honeyPrice?'🍯 '+item.honeyPrice+' Honey':'💰 '+formatNum(item.price);
+card.innerHTML=`
+<span class="icon">${item.icon}</span>
+<div class="name">${item.name}</div>
+<div class="price">${priceStr}</div>
+<button class="btn btn-buy" style="margin-top:6px;font-size:11px;" onclick="buyMerchantItem(${idx})">BUY</button>
+`;
+grid.appendChild(card);
+});
+openPanel('merchant');
+}
+
+function buyMerchantItem(idx){
+if(!state.merchantActive)return;
+const item=state.merchantType.items[idx];
+if(!item)return;
+if(item.honeyPrice){
+if(state.honey<item.honeyPrice){notify('❌ Not enough Honey!');return;}
+state.honey-=item.honeyPrice;
+}else{
+if(state.sheckles<item.price){notify('❌ Not enough Sheckles!');return;}
+state.sheckles-=item.price;state.totalSpent+=item.price;
+}
+if(item.type==='honey_item'){
+state.honey+=(item.gives||0);
+notify('🍯 Got '+item.gives+' Honey!');
+}else if(item.type==='seed_pack'){
+const rarity=item.rarity||'common';
+const seeds=Object.entries(PLANTS).filter(([k,v])=>v.rarity===rarity);
+if(seeds.length>0){
+const[id,p]=seeds[Math.floor(Math.random()*seeds.length)];
+state.inventory.push({category:'seed',plantType:id,gemMutation:null,name:p.name+' Seed',icon:p.icon});
+notify('🎁 Got '+p.name+' Seed from pack!');
+}
+}else if(item.type==='spray'){
+notify('🧬 Used '+item.name+'! Effect applied to nearest plant.');
+const plotIdx=getClosestPlot(10);
+if(plotIdx>=0&&state.garden[plotIdx]){
+const plant=state.garden[plotIdx];
+if(item.effect==='rainbow'&&!plant.variantMutation){
+plant.variantMutation='Rainbow';
+createPlant3D(plotIdx);
+notify('🌈 RAINBOW mutation applied!');
+playSound('mutation');
+}else if(item.effect==='mutation'){
+const muts=['Silver','Gold'];
+const m=muts[Math.floor(Math.random()*muts.length)];
+if(!plant.variantMutation){plant.variantMutation=m;createPlant3D(plotIdx);}
+}
+}
+}else{
+state.inventory.push({category:'gear',gearType:item.gearId||'recall_wrench',name:item.name,icon:item.icon,uses:1,maxUses:1});
+notify('🔧 Got '+item.name+'!');
+}
+playSound('buy');
+updateHUD();
+}
+
+// ================================================
+// SECTION 16: NPC DIALOGUE
+// ================================================
+function openNPCDialogue(npcId,customText){
+const box=document.getElementById('dialogue-box');
+box.style.display='block';
+anyPanelOpen=true;
+
+const nameEl=box.querySelector('.npc-name');
+const textEl=box.querySelector('.npc-text');
+const optionsEl=box.querySelector('.options');
+
+const names={sam:'Sam (Seed Shop)',steven:'Steven (Sell Stand)',eloise:'Eloise (Gear Shop)',raphael:'Raphael (Pet Shop)',crafting:'Crafting Station'};
+nameEl.textContent=names[npcId]||npcId;
+
+const greetings={
+sam:"Hey there, green thumb! Looking for some seeds today?",
+steven:"Hey! Got some crops for me? I'll buy anything you've grown.",
+eloise:"Welcome to the Gear Shop! Need tools to take your garden to the next level?",
+raphael:"Hey! Want some animal friends? I've got eggs of all kinds!",
+crafting:"Welcome to the Crafting Station! Combine materials to create powerful items."
+};
+
+const text=customText||greetings[npcId]||'Hello!';
+typewriterText(textEl,text);
+
+optionsEl.innerHTML='';
+const options=getNPCOptions(npcId);
+options.forEach(opt=>{
+const btn=document.createElement('button');
+btn.textContent=opt.label;
+btn.onclick=()=>{
+box.style.display='none';
+anyPanelOpen=false;
+opt.action();
+};
+optionsEl.appendChild(btn);
+});
+
+const closeBtn=document.createElement('button');
+closeBtn.textContent='Goodbye';
+closeBtn.onclick=()=>{
+const farewells={sam:"Come back soon! Your garden won't grow itself!",steven:"See ya around, farmer!",
+eloise:"Happy farming!",raphael:"Take good care of those little guys!",crafting:"Happy crafting!"};
+typewriterText(textEl,farewells[npcId]||'Bye!');
+setTimeout(()=>{box.style.display='none';anyPanelOpen=false;},1500);
+};
+optionsEl.appendChild(closeBtn);
+}
+
+function getNPCOptions(npcId){
+switch(npcId){
+case 'sam':return[
+{label:'Browse Seeds',action:()=>{renderSeedShop();openPanel('seeds');}},
+{label:"What's special?",action:()=>{
+openNPCDialogue('sam','"I restock every 5 minutes. Rarer seeds are less likely to show up. Keep checking back!"');
+}}
+];
+case 'steven':return[
+{label:'Sell Held Item',action:()=>openSellPanel()},
+{label:'Sell Entire Inventory',action:()=>openSellPanel()},
+{label:'Most valuable thing?',action:()=>{
+openNPCDialogue('steven','"I once had someone sell me a Cosmic Rainbow Mushroom. Valued over 30 million Sheckles! Wild."');
+}}
+];
+case 'eloise':return[
+{label:'Browse Gear',action:()=>{renderGearShop();openPanel('gear');}},
+{label:'Daily Quests',action:()=>{renderQuests();openPanel('quests');}},
+{label:'Upgrades',action:()=>{renderUpgrades();openPanel('upgrades');}},
+{label:'How do sprinklers work?',action:()=>{
+openNPCDialogue('eloise','"Just place \'em near your plants. They water automatically for their duration. Better sprinklers give mutation and size bonuses too!"');
+}}
+];
+case 'raphael':return[
+{label:'Browse Eggs',action:()=>{renderEggShop();openPanel('pets-shop');}},
+{label:'How do pets work?',action:()=>{
+openNPCDialogue('raphael','"Hatch an egg, and the pet follows you around. Each one has a special ability. Level them up for better effects!"');
+}},
+{label:'Upgrade Pet Slots',action:()=>{renderSlotUpgrades();openPanel('pets-shop');petShopTab('slots',document.querySelector('#panel-pets-shop .tab-bar button:last-child'));}}
+];
+case 'crafting':return[
+{label:'Open Crafting',action:()=>{renderCrafting();openPanel('crafting');}}
+];
+default:return[];
+}
+}
+
+let typewriterInterval=null;
+function typewriterText(el,text){
+if(typewriterInterval)clearInterval(typewriterInterval);
+el.textContent='';
+let i=0;
+typewriterInterval=setInterval(()=>{
+if(i<text.length){
+el.textContent+=text[i];
+i++;
+if(i%2===0)playSound('click');
+}else{
+clearInterval(typewriterInterval);
+}
+},30);
+}
+
+// ================================================
+// SECTION 17: CRAFTING
+// ================================================
+function renderCrafting(){
+const grid=document.getElementById('craft-grid');
+grid.innerHTML='';
+CRAFTING_RECIPES.forEach((recipe,idx)=>{
+const card=document.createElement('div');
+card.className='shop-card';
+card.innerHTML=`
+<span class="icon" style="font-size:30px;">${recipe.icon}</span>
+<div class="name">${recipe.name}</div>
+<div style="font-size:10px;color:#889;margin:4px 0;">Needs: ${recipe.ingredients.join(', ')}</div>
+<div class="price">💰 ${formatNum(recipe.cost)}</div>
+<button class="btn btn-special" style="margin-top:6px;font-size:11px;" onclick="craftItem(${idx})">CRAFT</button>
+`;
+grid.appendChild(card);
+});
+}
+
+function craftItem(idx){
+const recipe=CRAFTING_RECIPES[idx];
+if(state.sheckles<recipe.cost){notify('❌ Not enough Sheckles!');return;}
+if(state.inventory.length>=getMaxInv()){notify('🎒 Full!');return;}
+// Check ingredients (simplified - check gear/items in inventory)
+// For simplicity, we allow crafting if you have the Sheckles
+state.sheckles-=recipe.cost;
+state.totalSpent+=recipe.cost;
+
+const gear=GEAR[recipe.result];
+if(gear){
+state.inventory.push({category:'gear',gearType:recipe.result,name:gear.name,icon:gear.icon,uses:gear.uses,maxUses:gear.uses});
+}else{
+state.inventory.push({category:'gear',gearType:recipe.result,name:recipe.name,icon:recipe.icon,uses:1,maxUses:1});
+}
+playSound('buy');
+notify('🔨 Crafted '+recipe.name+'!');
+renderCrafting();
+updateHUD();
+}
+
+// ================================================
+// SECTION 18: QUESTS
+// ================================================
+let questProgress={};
+function initQuests(){
+const day=Math.floor(Date.now()/(86400000));
+if(state.questDay!==day){
+state.questDay=day;
+const shuffled=[...DAILY_QUESTS].sort(()=>Math.random()-0.5);
+state.quests=shuffled.slice(0,4).map(q=>({...q,progress:0,claimed:false}));
+}
+}
+
+function updateQuestProgress(type,amount){
+state.quests.forEach(q=>{
+if(q.type===type&&!q.claimed){
+q.progress=Math.min(q.target,q.progress+amount);
+}
+});
+}
+
+function renderQuests(){
+const list=document.getElementById('quests-list');
+list.innerHTML='';
+state.quests.forEach((q,idx)=>{
+const pct=Math.min(100,(q.progress/q.target)*100);
+const done=q.progress>=q.target;
+const div=document.createElement('div');
+div.className='quest-item';
+div.innerHTML=`
+<div style="display:flex;justify-content:space-between;align-items:center;">
+<div>
+<b>${q.name}</b><br>
+<span style="font-size:12px;color:#aab;">${q.desc}</span>
+</div>
+<div style="text-align:right;">
+<span style="font-size:12px;">${q.progress}/${q.target}</span><br>
+<span style="font-size:11px;color:#fc4;">🎁 ${q.rewardText}</span>
+</div>
+</div>
+<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+${done&&!q.claimed?'<button class="btn btn-buy" style="margin-top:6px;" onclick="claimQuest('+idx+')">CLAIM</button>':''}
+${q.claimed?'<span style="color:#4f4;font-size:12px;">✓ Claimed!</span>':''}
+`;
+list.appendChild(div);
+});
+}
+
+function claimQuest(idx){
+const q=state.quests[idx];
+if(!q||q.claimed||q.progress<q.target)return;
+q.claimed=true;
+if(q.reward.sheckles)state.sheckles+=q.reward.sheckles;
+if(q.reward.seedPack){
+const rarity=q.reward.seedPack;
+const seeds=Object.entries(PLANTS).filter(([k,v])=>v.rarity===rarity);
+if(seeds.length>0){
+const[id,p]=seeds[Math.floor(Math.random()*seeds.length)];
+if(state.inventory.length<getMaxInv()){
+state.inventory.push({category:'seed',plantType:id,gemMutation:null,name:p.name+' Seed',icon:p.icon});
+notify('🎁 Seed Pack: '+p.name+' Seed!');
+}
+}
+}
+playSound('sell');
+notify('✅ Quest complete! Reward claimed!');
+renderQuests();
+updateHUD();
+}
+
+// ================================================
+// SECTION 19: UPGRADES
+// ================================================
+function renderUpgrades(){
+const list=document.getElementById('upgrades-list');
+list.innerHTML='';
+for(const[id,up]of Object.entries(UPGRADES)){
+const bought=!!state.upgrades[id];
+const reqMet=!up.req||state.upgrades[up.req];
+const row=document.createElement('div');
+row.className='upgrade-row';
+row.style.opacity=reqMet?1:0.4;
+row.innerHTML=`
+<div class="info">
+<b>${up.name}</b><br>
+<span style="font-size:11px;color:#aab;">${up.desc}</span>
+</div>
+<span class="cost">${formatNum(up.cost)}</span>
+${bought?'<span style="color:#4f4;font-weight:700;">✓ Owned</span>':
+(reqMet?'<button class="btn btn-buy" onclick="buyUpgrade(\''+id+'\')">Buy</button>':'<span style="font-size:11px;color:#f88;">Requires: '+up.req+'</span>')}
+`;
+list.appendChild(row);
+}
+}
+
+function buyUpgrade(id){
+const up=UPGRADES[id];
+if(!up||state.upgrades[id])return;
+if(up.req&&!state.upgrades[up.req]){notify('❌ Prerequisite not met!');return;}
+if(state.sheckles<up.cost){notify('❌ Not enough Sheckles!');return;}
+state.sheckles-=up.cost;state.totalSpent+=up.cost;
+state.upgrades[id]=true;
+
+// Apply effect
+switch(up.effect){
+case 'plots':
+state.maxPlots+=up.value;
+state.totalPlotUpgrades++;
+createGardenPlots();
+break;
+case 'mega_plot':
+createGardenPlots();
+break;
+case 'growth':
+state.growthSpeedMult+=up.value;
+break;
+case 'mutation':
+state.mutationLuckBonus+=up.value;
+break;
+case 'bag':
+state.maxInv+=up.value;
+break;
+case 'auto_water':
+break;
+}
+
+playSound('buy');
+notify('⬆️ Upgraded: '+up.name+'!');
+renderUpgrades();
+updateHUD();
+}
+
+// ================================================
+// SECTION 20: INVENTORY
+// ================================================
+function renderInventory(tab='seeds'){
+const grid=document.getElementById('inv-grid');
+grid.innerHTML='';
+const items=state.inventory.filter(i=>{
+if(tab==='seeds')return i.category==='seed';
+if(tab==='crops')return i.category==='crop';
+if(tab==='gear')return i.category==='gear';
+return true;
+});
+if(items.length===0){
+grid.innerHTML='<p style="color:#888;padding:20px;grid-column:1/-1;">Nothing here!</p>';
+return;
+}
+items.forEach((item,rawIdx)=>{
+const idx=state.inventory.indexOf(item);
+const slot=document.createElement('div');
+slot.className='inv-slot';
+let extra='';
+if(item.category==='crop'){
+extra='<div style="color:#fc4;">'+formatNum(item.value)+'</div>';
+if(item.variantMutation)extra+='<div style="font-size:8px;color:#f8f;">'+item.variantMutation+'</div>';
+}
+if(item.category==='gear'&&item.uses>0)extra='<div style="color:#888;">'+item.uses+' uses</div>';
+if(item.gemMutation)extra+='<div style="font-size:8px;color:#8ff;">'+item.gemMutation+'</div>';
+slot.innerHTML=`<span class="inv-icon">${item.icon}</span><div>${item.name||''}</div>${extra}`;
+slot.title=item.name+(item.category==='gear'&&GEAR[item.gearType]?'\n'+GEAR[item.gearType].desc:'');
+
+if(item.category==='gear'){
+slot.onclick=()=>useGear(idx);
+}
+grid.appendChild(slot);
+});
+}
+
+function invTab(tab,btn){
+btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+renderInventory(tab);
+}
+
+function useGear(idx){
+const item=state.inventory[idx];
+if(!item||item.category!=='gear')return;
+const plotIdx=getClosestPlot(8);
+
+switch(item.gearType){
+case 'watering_can':case 'golden_watering':
+if(plotIdx>=0&&state.garden[plotIdx]){
+const plant=state.garden[plotIdx];
+const speedBoost=item.gearType==='golden_watering'?0.3:0.2;
+plant.plantedAt-=(PLANTS[plant.type].time*1000*speedBoost);
+createPlant3D(plotIdx);
+consumeGearUse(idx);
+notify('💧 Watered '+PLANTS[plant.type].name+'!');
+}else notify('🌱 Stand near a plant to water it!');
+break;
+case 'basic_sprinkler':case 'advanced_sprinkler':case 'godly_sprinkler':
+case 'master_sprinkler':case 'grandmaster_sprinkler':
+placeSprinkler(item,idx);
+break;
+case 'shovel':
+if(plotIdx>=0&&state.garden[plotIdx]){
+state.garden[plotIdx]=null;
+const p3d=gardenPlots3D[plotIdx];
+if(p3d&&p3d.plantMesh){scene.remove(p3d.plantMesh);p3d.plantMesh=null;}
+consumeGearUse(idx);
+notify('⛏️ Removed plant.');
+}
+break;
+case 'trowel':
+if(plotIdx>=0&&state.garden[plotIdx]){
+notify('🔧 Trowel: Plant picked up! Walk to empty plot and press E.');
+state.heldItem={type:'trowel_plant',plantData:{...state.garden[plotIdx]},fromPlot:plotIdx};
+state.garden[plotIdx]=null;
+const p3d=gardenPlots3D[plotIdx];
+if(p3d&&p3d.plantMesh){scene.remove(p3d.plantMesh);p3d.plantMesh=null;}
+consumeGearUse(idx);
+}
+break;
+case 'favorite_tool':
+if(plotIdx>=0&&state.garden[plotIdx]){
+state.garden[plotIdx].favorite=!state.garden[plotIdx].favorite;
+createPlant3D(plotIdx);
+notify(state.garden[plotIdx].favorite?'❤️ Plant favorited!':'💔 Plant unfavorited.');
+}
+break;
+case 'cleaning_spray':
+if(plotIdx>=0&&state.garden[plotIdx]){
+state.garden[plotIdx].weatherMutations=[];
+state.garden[plotIdx].variantMutation=null;
+state.garden[plotIdx].gemMutation=null;
+createPlant3D(plotIdx);
+consumeGearUse(idx);
+notify('🧹 Mutations removed!');
+}
+break;
+case 'reclaimer':
+if(plotIdx>=0&&state.garden[plotIdx]){
+const plant=state.garden[plotIdx];
+const info=PLANTS[plant.type];
+state.inventory.push({category:'seed',plantType:plant.type,gemMutation:plant.gemMutation,name:info.name+' Seed',icon:info.icon});
+state.garden[plotIdx]=null;
+const p3d=gardenPlots3D[plotIdx];
+if(p3d&&p3d.plantMesh){scene.remove(p3d.plantMesh);p3d.plantMesh=null;}
+consumeGearUse(idx);
+notify('♻️ Reclaimed seed!');
+}
+break;
+case 'levelup_lollipop':
+if(state.equippedPets.some(p=>p)){
+const pet=state.equippedPets.find(p=>p);
+if(pet){pet.level=Math.min(100,pet.level+10);pet.xp=getPetStage(pet).xp;
+consumeGearUse(idx);notify('🍭 '+pet.name+' gained 10 levels!');}
+}
+break;
+case 'lightning_rod':case 'tanning_mirror':
+notify('⚡ Placed '+item.name+'! Active during weather events.');
+consumeGearUse(idx);
+break;
+case 'honey_sprinkler':
+state.garden.forEach((plant,i)=>{
+if(plant&&!plant.weatherMutations.includes('Honey Glazed')){
+plant.weatherMutations.push('Honey Glazed');createPlant3D(i);
+}
+});
+consumeGearUse(idx);
+notify('🍯 Honey Glazed all plants!');
+playSound('mutation');
+break;
+case 'bee_staff':
+state.garden.forEach((plant,i)=>{
+if(plant&&!plant.weatherMutations.includes('Pollinated')&&Math.random()<0.5){
+plant.weatherMutations.push('Pollinated');createPlant3D(i);
+}
+});
+consumeGearUse(idx);
+notify('🐝 Bees are pollinating!');
+break;
+default:
+notify('Used '+item.name+'.');
+consumeGearUse(idx);
+}
+renderInventory();
+updateHUD();
+}
+
+function consumeGearUse(idx){
+const item=state.inventory[idx];
+if(!item)return;
+if(item.uses>0){
+item.uses--;
+if(item.uses<=0)state.inventory.splice(idx,1);
+}
+}
+
+function placeSprinkler(item,idx){
+const pos=new THREE.Vector3(playerPos.x,0,playerPos.z);
+const sprinklerMat=new THREE.MeshPhongMaterial({color:0x4488ff,emissive:0x112244});
+const sprinklerMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.5,1.5,8),sprinklerMat);
+sprinklerMesh.position.set(pos.x,0.75,pos.z);
+scene.add(sprinklerMesh);
+
+const duration=GEAR[item.gearType]?.duration||300;
+const sprinklerData={mesh:sprinklerMesh,pos,endTime:Date.now()+duration*1000,type:item.gearType};
+sprinklerMeshes.push(sprinklerData);
+
+// Effect: speed up growth + mutation chance for nearby plants
+const effectInterval=setInterval(()=>{
+if(Date.now()>sprinklerData.endTime){
+clearInterval(effectInterval);
+scene.remove(sprinklerMesh);
+sprinklerMeshes=sprinklerMeshes.filter(s=>s!==sprinklerData);
+return;
+}
+state.garden.forEach((plant,i)=>{
+if(!plant)return;
+const plot=gardenPlots3D[i];
+if(!plot)return;
+const dist=Math.sqrt((plot.x-pos.x)**2+(plot.z-pos.z)**2);
+if(dist<8){
+plant.plantedAt-=2000; // Speed up
+if(!plant.weatherMutations.includes('Wet')&&Math.random()<0.1){
+plant.weatherMutations.push('Wet');
+}
+}
+});
+},5000);
+
+consumeGearUse(idx);
+notify('💦 Placed '+item.name+'! Active for '+(duration/60)+' minutes.');
+playSound('buy');
+}
+
+// ================================================
+// SECTION 21: SOUND SYSTEM
+// ================================================
+const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+function playSound(type){
+try{
+const osc=audioCtx.createOscillator();
+const gain=audioCtx.createGain();
+osc.connect(gain);gain.connect(audioCtx.destination);
+gain.gain.value=0.08;
+
+switch(type){
+case 'click':osc.frequency.value=800;osc.type='square';gain.gain.value=0.03;
+osc.start();osc.stop(audioCtx.currentTime+0.02);break;
+case 'buy':osc.frequency.value=523;osc.type='triangle';
+osc.start();gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.2);osc.stop(audioCtx.currentTime+0.2);break;
+case 'sell':osc.frequency.value=880;osc.type='triangle';
+osc.start();osc.frequency.linearRampToValueAtTime(1200,audioCtx.currentTime+0.15);
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.3);osc.stop(audioCtx.currentTime+0.3);break;
+case 'harvest':osc.frequency.value=660;osc.type='sine';
+osc.start();osc.frequency.linearRampToValueAtTime(880,audioCtx.currentTime+0.1);
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.2);osc.stop(audioCtx.currentTime+0.2);break;
+case 'plant':osc.frequency.value=330;osc.type='sine';
+osc.start();osc.frequency.linearRampToValueAtTime(440,audioCtx.currentTime+0.15);
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.25);osc.stop(audioCtx.currentTime+0.25);break;
+case 'mutation':osc.frequency.value=440;osc.type='sine';
+osc.start();osc.frequency.linearRampToValueAtTime(1760,audioCtx.currentTime+0.5);
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.6);osc.stop(audioCtx.currentTime+0.6);break;
+case 'hatch':osc.frequency.value=600;osc.type='triangle';
+osc.start();osc.frequency.linearRampToValueAtTime(1200,audioCtx.currentTime+0.3);
+gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.4);osc.stop(audioCtx.currentTime+0.4);break;
+case 'thunder':osc.frequency.value=60;osc.type='sawtooth';gain.gain.value=0.15;
+osc.start();gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.5);osc.stop(audioCtx.currentTime+0.5);break;
+case 'error':osc.frequency.value=200;osc.type='square';gain.gain.value=0.05;
+osc.start();osc.stop(audioCtx.currentTime+0.15);break;
+default:osc.frequency.value=500;osc.type='sine';
+osc.start();osc.stop(audioCtx.currentTime+0.1);
+}
+}catch(e){}
+}
+
+// ================================================
+// SECTION 22: UTILITY FUNCTIONS
+// ================================================
+function formatNum(n){
+if(n>=1e9)return(n/1e9).toFixed(1)+'B';
+if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+return Math.floor(n).toString();
+}
+
+function weightedRandom(weights){
+const total=weights.reduce((a,b)=>a+b,0);
+let r=Math.random()*total;
+for(let i=0;i<weights.length;i++){r-=weights[i];if(r<=0)return i;}
+return weights.length-1;
+}
+
+function notify(text){
+const container=document.getElementById('notification');
+const div=document.createElement('div');
+div.className='notif';
+div.textContent=text;
+container.appendChild(div);
+setTimeout(()=>div.remove(),4000);
+}
+
+function openPanel(id){
+document.getElementById('panel-'+id).classList.add('active');
+anyPanelOpen=true;
+}
+function closePanel(id){
+document.getElementById('panel-'+id).classList.remove('active');
+anyPanelOpen=false;
+}
+function togglePanel(id){
+const panel=document.getElementById('panel-'+id);
+if(panel.classList.contains('active')){closePanel(id);}
+else{closeAllPanels();openPanel(id);}
+}
+function closeAllPanels(){
+document.querySelectorAll('.panel-overlay').forEach(p=>p.classList.remove('active'));
+document.getElementById('dialogue-box').style.display='none';
+anyPanelOpen=false;
+}
+
+function updateHUD(){
+document.getElementById('hud-sheckles').textContent=formatNum(state.sheckles);
+document.getElementById('hud-honey').textContent=state.honey;
+const planted=state.garden.filter(p=>p).length;
+document.getElementById('hud-plots').textContent=planted+'/'+getMaxPlots();
+document.getElementById('hud-inv').textContent=state.inventory.length+'/'+getMaxInv();
+
+const timerMins=Math.floor(state.restockTimer/60);
+const timerSecs=Math.floor(state.restockTimer%60);
+document.getElementById('hud-restock-time').textContent=timerMins+':'+timerSecs.toString().padStart(2,'0');
+document.getElementById('seed-timer').textContent=timerMins+':'+timerSecs.toString().padStart(2,'0');
+document.getElementById('gear-timer').textContent=timerMins+':'+timerSecs.toString().padStart(2,'0');
+
+const wIcon=document.getElementById('hud-weather-icon');
+const wText=document.getElementById('hud-weather');
+if(state.currentWeather){
+wIcon.textContent=state.currentWeather.icon;
+wText.textContent=state.currentWeather.name+' ('+Math.ceil(state.weatherTimeLeft)+'s)';
+}else{
+wIcon.textContent=state.isNight?'🌙':'☀️';
+wText.textContent='Clear';
+}
+}
+
+// ================================================
+// SECTION 23: MINIMAP
+// ================================================
+function updateMinimap(){
+const canvas=document.getElementById('minimap-canvas');
+const ctx=canvas.getContext('2d');
+ctx.fillStyle='#1a3a1a';ctx.fillRect(0,0,150,150);
+
+const scale=1.5;const ox=75,oy=75;
+function mapX(x){return ox+x*scale;}
+function mapZ(z){return oy+z*scale;}
+
+// Buildings
+ctx.fillStyle='#886633';ctx.fillRect(mapX(-28),mapZ(-33),10,8);
+ctx.fillStyle='#996644';ctx.fillRect(mapX(-15),mapZ(-33),8,7);
+ctx.fillStyle='#44aa55';ctx.fillRect(mapX(22),mapZ(27),10,8);
+ctx.fillStyle='#aa6644';ctx.fillRect(mapX(9),mapZ(27),8,8);
+ctx.fillStyle='#7744aa';ctx.fillRect(mapX(27),mapZ(12),7,7);
+ctx.fillStyle='#664488';ctx.fillRect(mapX(-35),mapZ(-21),6,6);
+
+// Garden plots
+ctx.fillStyle='#553311';
+gardenPlots3D.forEach(p=>{
+ctx.fillRect(mapX(p.x)-2,mapZ(p.z)-2,4,4);
+});
+
+// Plants
+ctx.fillStyle='#44ff44';
+state.garden.forEach((plant,i)=>{
+if(plant&&gardenPlots3D[i]){
+const p=gardenPlots3D[i];
+ctx.fillRect(mapX(p.x)-1,mapZ(p.z)-1,3,3);
+}
+});
+
+// Player
+ctx.fillStyle='#ff4444';
+ctx.beginPath();
+ctx.arc(mapX(playerPos.x),mapZ(playerPos.z),3,0,Math.PI*2);
+ctx.fill();
+
+// Labels
+ctx.fillStyle='#fff';ctx.font='7px Arial';
+ctx.fillText('Sam',mapX(-27),mapZ(-28));
+ctx.fillText('Steven',mapX(-15),mapZ(-28));
+ctx.fillText('Eloise',mapX(23),mapZ(32));
+ctx.fillText('Raphael',mapX(10),mapZ(32));
+ctx.fillText('Craft',mapX(27),mapZ(16));
+}
+
+// ================================================
+// SECTION 24: PET PASSIVE EFFECTS
+// ================================================
+let petTickTimer=0;
+function updatePetPassives(dt){
+petTickTimer+=dt;
+if(petTickTimer<5)return;
+petTickTimer=0;
+
+state.equippedPets.forEach(pet=>{
+if(!pet)return;
+const info=PETS_DATA[pet.type];
+if(!info)return;
+const stage=getPetStage(pet);
+
+// XP gain
+pet.xp+=2*stage.mult;
+const oldLevel=pet.level;
+for(let i=PET_LEVELS.length-1;i>=0;i--){
+if(pet.xp>=PET_LEVELS[i].xp&&pet.level<PET_LEVELS[i].lvl){
+pet.level=PET_LEVELS[i].lvl;
+pet.stage=PET_LEVELS[i].name;
+}
+}
+if(pet.level>oldLevel){
+notify('🎉 '+pet.name+' leveled up to Lv.'+pet.level+' ('+pet.stage+')!');
+playSound('hatch');
+}
+
+// Passive effects
+switch(info.passiveType){
+case 'seed_finder':
+if(Math.random()<0.05*stage.mult){
+const seeds=Object.entries(PLANTS).filter(([k,v])=>v.rarity==='common'||v.rarity==='uncommon');
+const[id,p]=seeds[Math.floor(Math.random()*seeds.length)];
+if(state.inventory.length<getMaxInv()){
+state.inventory.push({category:'seed',plantType:id,gemMutation:null,name:p.name+' Seed',icon:p.icon});
+notify('🐕 '+pet.name+' found a '+p.name+' Seed!');
+}
+}
+break;
+case 'sheckle_drop':
+const amt=Math.floor(100*stage.mult);
+state.sheckles+=amt;
+break;
+case 'auto_water':
+state.garden.forEach((plant,i)=>{
+if(plant&&Math.random()<0.1*stage.mult){
+plant.plantedAt-=3000;
+if(!plant.weatherMutations.includes('Wet')&&Math.random()<0.05){
+plant.weatherMutations.push('Wet');
+createPlant3D(i);
+}
+}
+});
+break;
+case 'growth_boost':
+state.garden.forEach((plant,i)=>{
+if(plant)plant.plantedAt-=Math.floor(2000*stage.mult);
+});
+break;
+case 'mutation_boost':
+// Handled in mutation rolls
+break;
+case 'golden_touch':
+if(Math.random()<0.03){
+const plantedPlots=state.garden.map((p,i)=>p?i:-1).filter(i=>i>=0);
+if(plantedPlots.length>0){
+const idx=plantedPlots[Math.floor(Math.random()*plantedPlots.length)];
+if(!state.garden[idx].variantMutation){
+state.garden[idx].variantMutation='Gold';
+createPlant3D(idx);
+notify('✨ '+pet.name+' turned a plant golden!');
+playSound('mutation');
+}
+}
+}
+break;
+}
+});
+}
+
+// ================================================
+// SECTION 25: SAVE / LOAD
+// ================================================
+function saveGame(){
+const saveData={
+sheckles:state.sheckles,honey:state.honey,
+garden:state.garden,maxPlots:state.maxPlots,totalPlotUpgrades:state.totalPlotUpgrades,
+inventory:state.inventory,maxInv:state.maxInv,
+pets:state.pets,equippedPets:state.equippedPets.map(p=>p?p.id:null),
+maxEquipSlots:state.maxEquipSlots,petInvCap:state.petInvCap,
+upgrades:state.upgrades,
+quests:state.quests,questDay:state.questDay,
+dayTime:state.dayTime,
+totalEarned:state.totalEarned,totalPlanted:state.totalPlanted,
+totalHarvested:state.totalHarvested,totalSold:state.totalSold,
+totalSpent:state.totalSpent,totalHatched:state.totalHatched,
+growthSpeedMult:state.growthSpeedMult,mutationLuckBonus:state.mutationLuckBonus,
+};
+localStorage.setItem('gag_save',JSON.stringify(saveData));
+}
+
+function loadGame(){
+const data=localStorage.getItem('gag_save');
+if(!data)return;
+try{
+const s=JSON.parse(data);
+Object.assign(state,s);
+// Reconnect equipped pets
+if(s.equippedPets){
+state.equippedPets=s.equippedPets.map(id=>{
+if(!id)return null;
+return state.pets.find(p=>p.id===id)||null;
+});
+}
+while(state.equippedPets.length<state.maxEquipSlots)state.equippedPets.push(null);
+// Rebuild garden visuals
+while(state.garden.length<getMaxPlots())state.garden.push(null);
+createGardenPlots();
+state.garden.forEach((p,i)=>{if(p)createPlant3D(i);});
+updatePetMeshes();
+updateHUD();
+}catch(e){console.error('Load error:',e);}
+}
+
+// ================================================
+// SECTION 26: STATS PANEL
+// ================================================
+function renderStats(){
+const content=document.getElementById('stats-content');
+const prog=[
+{name:'New Player (0-10K)',check:state.totalEarned>=10000},
+{name:'Early Game (10K-100K)',check:state.totalEarned>=100000},
+{name:'Mid Game (100K-1M)',check:state.totalEarned>=1000000},
+{name:'Late Game (1M-50M)',check:state.totalEarned>=50000000},
+{name:'End Game (50M+)',check:state.totalEarned>=50000000},
+{name:'God Tier (1B+)',check:state.totalEarned>=1000000000},
+];
+content.innerHTML=`
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:15px;">
+<div class="upgrade-row"><div class="info">💰 Total Earned</div><span class="cost">${formatNum(state.totalEarned)}</span></div>
+<div class="upgrade-row"><div class="info">💸 Total Spent</div><span class="cost">${formatNum(state.totalSpent)}</span></div>
+<div class="upgrade-row"><div class="info">🌱 Total Planted</div><span class="cost">${state.totalPlanted}</span></div>
+<div class="upgrade-row"><div class="info">🌾 Total Harvested</div><span class="cost">${state.totalHarvested}</span></div>
+<div class="upgrade-row"><div class="info">📦 Total Sold</div><span class="cost">${state.totalSold}</span></div>
+<div class="upgrade-row"><div class="info">🐣 Total Hatched</div><span class="cost">${state.totalHatched}</span></div>
+<div class="upgrade-row"><div class="info">🐾 Pets Owned</div><span class="cost">${state.pets.length}</span></div>
+<div class="upgrade-row"><div class="info">⬆️ Upgrades</div><span class="cost">${Object.keys(state.upgrades).length}</span></div>
+</div>
+<h3 style="margin-bottom:8px;">Progression</h3>
+${prog.map(p=>'<div class="upgrade-row"><div class="info">'+(p.check?'✅':'⬜')+' '+p.name+'</div></div>').join('')}
+<button class="btn btn-action" style="margin-top:12px;" onclick="if(confirm('Reset all data?')){localStorage.removeItem('gag_save');location.reload();}">🗑️ Reset Game</button>
+`;
+}
+
+// ================================================
+// SECTION 27: GAME LOOP
+// ================================================
+let lastTime=0;
+let autoSaveTimer=0;
+let plantUpdateTimer=0;
+let autoWaterTimer=0;
+
+function gameLoop(time){
+requestAnimationFrame(gameLoop);
+if(!started)return;
+
+const dt=clock.getDelta();
+
+// Player movement
+updatePlayer(dt);
+updateCamera();
+
+// Update plant visuals periodically
+plantUpdateTimer+=dt;
+if(plantUpdateTimer>2){
+plantUpdateTimer=0;
+state.garden.forEach((p,i)=>{if(p)createPlant3D(i);});
+}
+
+// Weather
+updateWeather(dt);
+updateWeatherParticles(dt);
+
+// Day/night
+updateDayNight();
+
+// Merchant
+updateMerchant(dt);
+
+// Pet passives
+updatePetPassives(dt);
+
+// Auto-water upgrade
+if(state.upgrades.auto_water){
+autoWaterTimer+=dt;
+if(autoWaterTimer>=300){
+autoWaterTimer=0;
+state.garden.forEach((plant,i)=>{
+if(plant){
+plant.plantedAt-=5000;
+if(!plant.weatherMutations.includes('Wet')&&Math.random()<0.1)
+plant.weatherMutations.push('Wet');
+}
+});
+notify('💧 Auto-Water activated!');
+}
+}
+
+// Restock timer
+state.restockTimer-=dt;
+if(state.restockTimer<=0)restockShops();
+
+// Interaction prompt
+updateInteractionPrompt();
+
+// Update pet positions (orbit around player)
+petMeshes3D.forEach((mesh,i)=>{
+if(!mesh)return;
+const angle=(mesh.userData.angle||0)+time*0.001;
+mesh.userData.angle=(mesh.userData.angle||0)+dt*0.5;
+const radius=3;
+mesh.position.set(
+playerPos.x+Math.cos(angle)*radius,
+0,
+playerPos.z+Math.sin(angle)*radius
+);
+// Bob up and down
+mesh.position.y=0.2+Math.sin(time*0.003+i)*0.2;
+});
+
+// Sparkle animation on ready plants
+gardenPlots3D.forEach((p,i)=>{
+if(p.plantMesh){
+const sparkle=p.plantMesh.getObjectByName('sparkle');
+if(sparkle){
+sparkle.rotation.y+=dt*3;
+sparkle.position.y+=Math.sin(time*0.005)*0.01;
+}
+}
+});
+
+// Sprinkler rotation
+sprinklerMeshes.forEach(s=>{
+if(s.mesh)s.mesh.rotation.y+=dt*2;
+});
+
+// HUD update
+updateHUD();
+
+// Minimap
+if(Math.floor(time/500)%2===0)updateMinimap();
+
+// Auto-save
+autoSaveTimer+=dt;
+if(autoSaveTimer>60){autoSaveTimer=0;saveGame();}
+
+renderer.render(scene,camera);
+}
+
+function updatePlayer(dt){
+if(anyPanelOpen)return;
+
+const speed=12;
+const dir=new THREE.Vector3();
+
+if(keys['KeyW'])dir.z-=1;
+if(keys['KeyS'])dir.z+=1;
+if(keys['KeyA'])dir.x-=1;
+if(keys['KeyD'])dir.x+=1;
+
+    if(dir.length()>0){
+        dir.normalize();
+        // Rotate direction based on camera angle (use negative angle so movement is camera-relative)
+        const rotated=new THREE.Vector3(
+            dir.x*Math.cos(cameraAngleY)+dir.z*Math.sin(cameraAngleY),
+            0,
+            -dir.x*Math.sin(cameraAngleY)+dir.z*Math.cos(cameraAngleY)
+        );
+playerPos.x+=rotated.x*speed*dt;
+playerPos.z+=rotated.z*speed*dt;
+
+// Clamp to world bounds
+playerPos.x=Math.max(-90,Math.min(90,playerPos.x));
+playerPos.z=Math.max(-90,Math.min(90,playerPos.z));
+
+// Rotate player to face movement direction
+const angle=Math.atan2(rotated.x,rotated.z);
+playerGroup.rotation.y=angle;
+
+// Walk animation
+const walkTime=Date.now()*0.008;
+const legSwing=Math.sin(walkTime)*0.5;
+playerGroup.children.forEach(c=>{
+if(c.name==='lLeg')c.rotation.x=legSwing;
+if(c.name==='rLeg')c.rotation.x=-legSwing;
+if(c.name==='lArm')c.rotation.x=-legSwing*0.7;
+if(c.name==='rArm')c.rotation.x=legSwing*0.7;
+});
+}else{
+// Idle - reset limbs
+playerGroup.children.forEach(c=>{
+if(['lLeg','rLeg','lArm','rArm'].includes(c.name))c.rotation.x=0;
+});
+}
+
+// Jump
+if(jumping&&playerOnGround){
+playerVelY=8;
+playerOnGround=false;
+}
+playerVelY-=20*dt;
+playerPos.y+=playerVelY*dt;
+if(playerPos.y<=0){
+playerPos.y=0;
+playerVelY=0;
+playerOnGround=true;
+}
+
+playerGroup.position.copy(playerPos);
+
+// Handle trowel placement
+if(state.heldItem&&state.heldItem.type==='trowel_plant'){
+const plotIdx=getClosestPlot(5);
+if(plotIdx>=0&&!state.garden[plotIdx]&&keys['KeyE']){
+state.garden[plotIdx]=state.heldItem.plantData;
+createPlant3D(plotIdx);
+state.heldItem=null;
+notify('🔧 Plant moved!');
+}
+}
+}
+
+function updateInteractionPrompt(){
+const prompt=document.getElementById('interaction-prompt');
+if(anyPanelOpen){prompt.style.display='none';return;}
+
+let closest=null,minDist=99;
+
+// Check NPCs
+for(const npc of npcMeshes){
+const d=playerPos.distanceTo(npc.worldPos);
+if(d<6&&d<minDist){
+minDist=d;
+const names={sam:'Sam',steven:'Steven',eloise:'Eloise',raphael:'Raphael',crafting:'Crafting Station'};
+closest='Press E to talk to '+(names[npc.id]||npc.id);
+}
+}
+
+// Check garden plots
+if(!closest){
+const plotIdx=getClosestPlot(5);
+if(plotIdx>=0){
+const plant=state.garden[plotIdx];
+if(plant){
+const info=PLANTS[plant.type];
+const progress=Math.min(1,(Date.now()-plant.plantedAt)/(info.time*1000/state.growthSpeedMult));
+if(progress>=1){
+let mutStr='';
+if(plant.variantMutation)mutStr+=' ['+plant.variantMutation+']';
+if(plant.gemMutation)mutStr+=' ['+plant.gemMutation+']';
+plant.weatherMutations.forEach(w=>mutStr+=' ['+w+']');
+closest='Press E to harvest '+info.name+mutStr;
+}else{
+closest=info.icon+' '+info.name+' — '+Math.floor(progress*100)+'% grown';
+}
+}else{
+const hasSeed=state.inventory.some(i=>i.category==='seed');
+closest=hasSeed?'Press E to plant seed':'Empty plot — buy seeds from Sam!';
+}
+}
+}
+
+// Check merchant
+if(!closest&&state.merchantActive){
+const d=playerPos.distanceTo(new THREE.Vector3(-32,0,-18));
+if(d<8)closest='Press E to visit '+state.merchantType.name;
+}
+
+if(closest){
+prompt.textContent=closest;
+prompt.style.display='block';
+}else{
+prompt.style.display='none';
+}
+}
+
+// ================================================
+// INIT
+// ================================================
+initThree();
+
+// Initialize equipped pets array
+while(state.equippedPets.length<state.maxEquipSlots)state.equippedPets.push(null);
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
